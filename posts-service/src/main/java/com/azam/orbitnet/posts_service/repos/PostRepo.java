@@ -7,5 +7,4 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface PostRepo extends JpaRepository<Post, Long> {
     Page<Post> getAllPostsByUserId(Long userId, Pageable pageable);
-    void deleteByPostIdAndUserId(Long postId, Long userId);
 }

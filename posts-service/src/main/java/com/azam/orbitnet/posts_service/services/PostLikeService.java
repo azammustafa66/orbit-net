@@ -1,6 +1,5 @@
 package com.azam.orbitnet.posts_service.services;
 
-import com.azam.orbitnet.posts_service.entities.Post;
 import com.azam.orbitnet.posts_service.entities.PostLike;
 import com.azam.orbitnet.posts_service.exceptions.BadRequestException;
 import com.azam.orbitnet.posts_service.exceptions.ResourceNotFoundException;
@@ -10,8 +9,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
-
-import java.util.UUID;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -22,11 +20,14 @@ public class PostLikeService {
     private final PostRepo postRepo;
     private final ModelMapper modelMapper;
 
+    @Transactional
     public void likePost(Long postId) {
         Long userId = 1L;
         log.info("User with id {} liking post with id {}", userId, postId);
 
-        Post post = postRepo.findById(postId).orElseThrow(() -> new ResourceNotFoundException("Post with id " + postId + " does not exist"));
+        if (!postRepo.existsById(postId)) {
+            throw new ResourceNotFoundException("Post with id " + postId + " does not exist");
+        }
         boolean hasAlreadyLiked = postLikeRepo.existsByUserIdAndPostId(userId, postId);
         if (hasAlreadyLiked) {
             throw new BadRequestException("Post with id " + postId + " is already liked");
@@ -39,14 +40,19 @@ public class PostLikeService {
         // TODO : Send notifications to user when someone likes a post using kafka
     }
 
+    @Transactional
     public void unlikePost(Long postId) {
         Long userId = 1L;
         log.info("User with id {} unliking post with id {}", userId, postId);
 
-        Post post = postRepo.findById(postId).orElseThrow(() -> new ResourceNotFoundException("Post with id " + postId + " does not exist"));
+        if (!postRepo.existsById(postId)) {
+            throw new ResourceNotFoundException("Post with id " + postId + " does not exist");
+        }
         boolean hasAlreadyLiked = postLikeRepo.existsByUserIdAndPostId(userId, postId);
-        if (!hasAlreadyLiked) throw new BadRequestException("You cannot unlike a post which you've not liked yet");
+        if (!hasAlreadyLiked) {
+            throw new BadRequestException("You cannot unlike a post which you've not liked yet");
+        }
 
-        postRepo.deleteByPostIdAndUserId(postId, userId);
+        postLikeRepo.deleteByPostIdAndUserId(postId, userId);
     }
 }
