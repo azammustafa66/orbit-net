@@ -1,6 +1,6 @@
-package com.azam.orbitnet.user_service.dto;
+package com.orbitet.dto;
 
-import com.azam.orbitnet.user_service.validation.MaxBytes;
+import com.orbitet.validation.MaxBytes;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;

@@ -1,4 +1,4 @@
-package com.azam.orbitnet.user_service.exceptions;
+package com.orbitet.exceptions;
 
 public class BadCredentialsException extends RuntimeException {
 

@@ -1,10 +1,10 @@
-package com.azam.orbitnet.user_service.controller;
+package com.orbitet.controller;
 
-import com.azam.orbitnet.user_service.dto.LoginRequestDto;
-import com.azam.orbitnet.user_service.dto.LoginResponseDto;
-import com.azam.orbitnet.user_service.dto.SignUpRequestDto;
-import com.azam.orbitnet.user_service.dto.SignUpResponseDto;
-import com.azam.orbitnet.user_service.services.UserService;
+import com.orbitet.dto.LoginRequestDto;
+import com.orbitet.dto.LoginResponseDto;
+import com.orbitet.dto.SignUpRequestDto;
+import com.orbitet.dto.SignUpResponseDto;
+import com.orbitet.services.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

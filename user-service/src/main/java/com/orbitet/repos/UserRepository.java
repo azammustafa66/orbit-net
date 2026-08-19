@@ -1,6 +1,6 @@
-package com.azam.orbitnet.user_service.repos;
+package com.orbitet.repos;
 
-import com.azam.orbitnet.user_service.entities.AppUser;
+import com.orbitet.entities.AppUser;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

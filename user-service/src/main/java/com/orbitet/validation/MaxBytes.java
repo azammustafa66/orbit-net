@@ -1,4 +1,4 @@
-package com.azam.orbitnet.user_service.validation;
+package com.orbitet.validation;
 
 import jakarta.validation.Constraint;
 import jakarta.validation.Payload;

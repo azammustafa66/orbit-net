@@ -1,4 +1,4 @@
-package com.azam.orbitnet.user_service.dto;
+package com.orbitet.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;

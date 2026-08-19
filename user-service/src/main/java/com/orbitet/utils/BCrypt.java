@@ -1,4 +1,4 @@
-package com.azam.orbitnet.user_service.utils;
+package com.orbitet.utils;
 
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;

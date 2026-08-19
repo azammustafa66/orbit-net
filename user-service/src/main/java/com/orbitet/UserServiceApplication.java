@@ -1,4 +1,4 @@
-package com.azam.orbitnet.user_service;
+package com.orbitet;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

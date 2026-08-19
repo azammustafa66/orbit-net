@@ -1,11 +1,11 @@
-package com.azam.orbitnet.user_service.services;
+package com.orbitet.services;
 
-import com.azam.orbitnet.user_service.dto.*;
-import com.azam.orbitnet.user_service.entities.AppUser;
-import com.azam.orbitnet.user_service.exceptions.BadCredentialsException;
-import com.azam.orbitnet.user_service.exceptions.BadRequestException;
-import com.azam.orbitnet.user_service.repos.UserRepository;
-import com.azam.orbitnet.user_service.utils.BCrypt;
+import com.orbitet.dto.*;
+import com.orbitet.entities.AppUser;
+import com.orbitet.exceptions.BadCredentialsException;
+import com.orbitet.exceptions.BadRequestException;
+import com.orbitet.repos.UserRepository;
+import com.orbitet.utils.BCrypt;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;

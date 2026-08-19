@@ -1,4 +1,4 @@
-package com.azam.orbitnet.user_service.config;
+package com.orbitet.config;
 
 import org.modelmapper.ModelMapper;
 import org.springframework.context.annotation.Bean;

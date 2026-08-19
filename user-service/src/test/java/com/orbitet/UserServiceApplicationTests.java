@@ -1,4 +1,4 @@
-package com.azam.orbitnet.user_service;
+package com.orbitet;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;

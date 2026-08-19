@@ -1,4 +1,4 @@
-package com.azam.orbitnet.user_service.entities;
+package com.orbitet.entities;
 
 import jakarta.persistence.*;
 import lombok.Getter;

@@ -1,4 +1,4 @@
-package com.azam.orbitnet.user_service.exceptions;
+package com.orbitet.exceptions;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;

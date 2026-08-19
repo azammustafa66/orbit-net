@@ -1,6 +1,7 @@
-package com.azam.orbitnet.user_service.services;
+package com.orbitet.services;
 
-import com.azam.orbitnet.user_service.entities.AppUser;
+import com.orbitet.entities.AppUser;
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
@@ -23,8 +24,7 @@ public class JwtService {
     private final SecretKey key;
     private final long expirationMs;
 
-    public JwtService(@Value("${jwt.secret}") String secret,
-                      @Value("${jwt.expiration-ms}") long expirationMs) {
+    public JwtService(@Value("${jwt.secret}") String secret, @Value("${jwt.expiration-ms}") long expirationMs) {
         this.key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret));
         this.expirationMs = expirationMs;
     }
@@ -36,7 +36,15 @@ public class JwtService {
                 .claim("email", user.getEmail())
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plusMillis(expirationMs)))
-                .signWith(key)
-                .compact();
+                .signWith(key).compact();
+    }
+
+    public String retrieveUserIdFromToken(String token) {
+        Claims claims = Jwts.parser()
+                .verifyWith(key)
+                .build()
+                .parseSignedClaims(token).getPayload();
+
+        return claims.getSubject();
     }
 }

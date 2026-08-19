@@ -1,4 +1,4 @@
-package com.azam.orbitnet.user_service.exceptions;
+package com.orbitet.exceptions;
 
 public class ResourceNotFoundException extends RuntimeException {
     public ResourceNotFoundException(String message) {
