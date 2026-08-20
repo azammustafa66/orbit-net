@@ -1,5 +1,6 @@
 package com.orbitet.controllers;
 
+import com.orbitet.auth.AuthContextHolder;
 import com.orbitet.dto.CreatePostRequestDto;
 import com.orbitet.dto.PagedResponse;
 import com.orbitet.dto.PostDto;
@@ -19,12 +20,10 @@ public class PostController {
 
     private final PostService postService;
 
-    // TODO: the gateway will supply X-User-Id once JWT auth is in place; the default is for local testing only
     @PostMapping
     public ResponseEntity<PostDto> createPost(
-            @RequestHeader(name = "X-User-Id", defaultValue = "1") Long userId,
             @Valid @RequestBody CreatePostRequestDto postCreateReq) {
-        PostDto postDto = postService.createPost(postCreateReq, userId);
+        PostDto postDto = postService.createPost(postCreateReq, AuthContextHolder.requireCurrentUserId());
         return new ResponseEntity<>(postDto, HttpStatus.CREATED);
     }
 
@@ -39,7 +38,7 @@ public class PostController {
 
     @GetMapping("/{postId}")
     public ResponseEntity<PostDto> getPostById(@PathVariable Long postId) {
-        PostDto post = postService.getPost(postId);
+        PostDto post = postService.getPostById(postId);
         return new ResponseEntity<>(post, HttpStatus.OK);
     }
 }

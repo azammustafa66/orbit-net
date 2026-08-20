@@ -1,3 +1,47 @@
 spring:
   application:
     name: api-gateway
+  cloud:
+    gateway:
+      server:
+        webmvc:
+          routes:
+            # Serves /api/v1/users/auth/** (context-path + @RequestMapping("/auth")),
+            # so the path is forwarded untouched.
+            - id: user-service
+              uri: lb://USER-SERVICE
+              predicates:
+                - Path=/api/v1/users/**
+
+            # posts-service has no context-path and maps /api/v1/core/posts,
+            # so rewrite the public path onto the internal one.
+            - id: posts-service
+              uri: lb://POSTS-SERVICE
+              predicates:
+                - Path=/api/v1/posts/**
+              filters:
+                # Slash lives inside the capture group so the bare /api/v1/posts
+                # rewrites to /api/v1/core/posts, not /api/v1/core/posts/ (Spring 6
+                # no longer tolerates the trailing slash).
+                - RewritePath=/api/v1/posts(?<segment>.*), /api/v1/core/posts$\{segment}
+
+            # Serves /api/v1/connections/** via context-path, forwarded untouched.
+            - id: connection-service
+              uri: lb://CONNECTION-SERVICE
+              predicates:
+                - Path=/api/v1/connections/**
+
+server:
+  port: 8083
+
+# JWT
+# Must stay identical to user-service's jwt.secret — that service signs the tokens this
+# gateway verifies. Dev default only; override with the JWT_SECRET env var everywhere else.
+jwt:
+  secret: '${JWT_SECRET:Y6p+WpI6q4wtr9nv0hYcLtUP7p6eoinove/qSeBU1rM=}'
+
+# Eureka Service Discovery
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8084/eureka

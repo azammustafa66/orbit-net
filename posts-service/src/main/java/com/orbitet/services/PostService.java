@@ -1,7 +1,10 @@
 package com.orbitet.services;
 
+import com.orbitet.auth.AuthContextHolder;
+import com.orbitet.client.ConnectionServiceClient;
 import com.orbitet.dto.CreatePostRequestDto;
 import com.orbitet.dto.PagedResponse;
+import com.orbitet.dto.PersonDto;
 import com.orbitet.dto.PostDto;
 import com.orbitet.entities.Post;
 import com.orbitet.exceptions.ResourceNotFoundException;
@@ -9,12 +12,15 @@ import com.orbitet.repos.PostRepo;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
+import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -23,6 +29,7 @@ public class PostService {
 
     private final PostRepo postRepo;
     private final ModelMapper modelMapper;
+    private final ConnectionServiceClient connectionServiceClient;
 
     @Transactional
     public PostDto createPost(CreatePostRequestDto postCreateReq, Long userId) {
@@ -35,8 +42,11 @@ public class PostService {
     }
 
     @Transactional(readOnly = true)
-    public PostDto getPost(Long postId) {
+    public PostDto getPostById(Long postId) {
         log.info("Getting post with id {}", postId);
+
+        List<PersonDto> personDtoList = connectionServiceClient.getFirstDegreeConnections(AuthContextHolder.getCurrentUserId());
+
         Post post = postRepo.findById(postId)
                 .orElseThrow(() -> new ResourceNotFoundException("Post not found with id " + postId));
         return PostDto.from(post);

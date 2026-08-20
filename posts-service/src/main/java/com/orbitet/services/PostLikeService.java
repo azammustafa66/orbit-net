@@ -21,8 +21,7 @@ public class PostLikeService {
     private final ModelMapper modelMapper;
 
     @Transactional
-    public void likePost(Long postId) {
-        Long userId = 1L;
+    public void likePost(Long postId, Long userId) {
         log.info("User with id {} liking post with id {}", userId, postId);
 
         if (!postRepo.existsById(postId)) {
@@ -41,8 +40,7 @@ public class PostLikeService {
     }
 
     @Transactional
-    public void unlikePost(Long postId) {
-        Long userId = 1L;
+    public void unlikePost(Long postId, Long userId) {
         log.info("User with id {} unliking post with id {}", userId, postId);
 
         if (!postRepo.existsById(postId)) {

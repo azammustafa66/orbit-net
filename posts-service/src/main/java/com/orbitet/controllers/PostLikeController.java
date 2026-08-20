@@ -1,5 +1,6 @@
 package com.orbitet.controllers;
 
+import com.orbitet.auth.AuthContextHolder;
 import com.orbitet.entities.PostLike;
 import com.orbitet.services.PostLikeService;
 import lombok.RequiredArgsConstructor;
@@ -18,13 +19,13 @@ public class PostLikeController {
 
     @PostMapping("/{postId}")
     public ResponseEntity<Object> likePost(@PathVariable Long postId) {
-        postLikeService.likePost(postId);
+        postLikeService.likePost(postId, AuthContextHolder.requireCurrentUserId());
         return ResponseEntity.noContent().build();
     }
 
     @DeleteMapping("/{postId}")
     public ResponseEntity<Object> deletePostLike(@PathVariable Long postId) {
-        postLikeService.unlikePost(postId);
+        postLikeService.unlikePost(postId, AuthContextHolder.requireCurrentUserId());
         return ResponseEntity.noContent().build();
     }
 }
