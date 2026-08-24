@@ -1,6 +1,16 @@
 spring:
   application:
     name: posts-service
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.LongSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json:
+          # Events travel under a logical name rather than this module's class name, so
+          # consumers can map them onto their own package without matching ours.
+          type.mapping: postCreated:com.orbitet.events.PostCreated,postLiked:com.orbitet.events.PostLiked
 
   # Data source
   datasource:

@@ -31,6 +31,13 @@ spring:
               predicates:
                 - Path=/api/v1/connections/**
 
+            # notification-service maps /api/v1/notifications itself, so the path is
+            # forwarded untouched.
+            - id: notification-service
+              uri: lb://NOTIFICATION-SERVICE
+              predicates:
+                - Path=/api/v1/notifications/**
+
 server:
   port: 8083
 

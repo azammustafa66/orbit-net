@@ -4,10 +4,7 @@ import com.orbitet.entities.Person;
 import com.orbitet.services.ConnectionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -19,7 +16,7 @@ public class ConnectionsController {
     private final ConnectionService connectionService;
 
     @GetMapping("/{userId}/first-degree")
-    public ResponseEntity<List<Person>> getFirstDegreeConnections(@PathVariable Long userId) {
+    public ResponseEntity<List<Person>> getFirstDegreeConnections(@PathVariable Long userId, @RequestHeader("X-User-Id") Long userIdFromHeader) {
         List<Person> personList = connectionService.getFirstDegreeConnections(userId);
         return ResponseEntity.ok(personList);
     }

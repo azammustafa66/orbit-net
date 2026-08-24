@@ -7,6 +7,7 @@ import com.orbitet.dto.PagedResponse;
 import com.orbitet.dto.PersonDto;
 import com.orbitet.dto.PostDto;
 import com.orbitet.entities.Post;
+import com.orbitet.events.PostCreated;
 import com.orbitet.exceptions.ResourceNotFoundException;
 import com.orbitet.repos.PostRepo;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +18,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,15 +32,33 @@ public class PostService {
     private final PostRepo postRepo;
     private final ModelMapper modelMapper;
     private final ConnectionServiceClient connectionServiceClient;
+    private final KafkaTemplate<Long, PostCreated> postCreatedTemplate;
+
+    private static final int SNEAK_PEEK_LENGTH = 120;
 
     @Transactional
     public PostDto createPost(CreatePostRequestDto postCreateReq, Long userId) {
         log.info("Creating a post for user id {}", userId);
         Post post = modelMapper.map(postCreateReq, Post.class);
         post.setUserId(userId);
-        // flush so Hibernate populates @CreationTimestamp/@UpdateTimestamp before we map
-        Post saved = postRepo.saveAndFlush(post);
-        return PostDto.from(saved);
+        post = postRepo.saveAndFlush(post);
+
+        List<PersonDto> personDtoList = connectionServiceClient.getFirstDegreeConnections(userId);
+
+        String sneakPeek = sneakPeek(post.getContent());
+        for (var person : personDtoList) { // send notification to each connection
+            PostCreated postCreated = PostCreated.builder()
+                    .postId(post.getId())
+                    .userId(person.getUserId())
+                    .createdByUserId(userId)
+                    .contentSneakPeek(sneakPeek)
+                    .build();
+            // Keyed by recipient so every notification for one user lands on the same
+            // partition, and so stays ordered.
+            postCreatedTemplate.send("post_created_topic", person.getUserId(), postCreated);
+        }
+
+        return PostDto.from(post);
     }
 
     @Transactional(readOnly = true)
@@ -61,5 +81,12 @@ public class PostService {
         Pageable pageable = PageRequest.of(page - 1, pageSize, Sort.by(Sort.Direction.DESC, "createdAt"));
         Page<PostDto> posts = postRepo.getAllPostsByUserId(userId, pageable).map(PostDto::from);
         return PagedResponse.from(posts);
+    }
+
+    /** Keeps the event payload small — subscribers only show a preview of the post. */
+    private static String sneakPeek(String content) {
+        return content.length() <= SNEAK_PEEK_LENGTH
+                ? content
+                : content.substring(0, SNEAK_PEEK_LENGTH) + "\u2026";
     }
 }

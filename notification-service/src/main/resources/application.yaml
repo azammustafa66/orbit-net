@@ -1,0 +1,55 @@
+spring:
+  application:
+    name: notification-service
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/notification-service
+    username: admin
+    password: admin
+    driver-class-name: org.postgresql.Driver
+
+  # Hibernate
+  # Flyway owns the schema; Hibernate only checks that entities match it.
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  # Schema migrations
+  flyway:
+    baseline-on-migrate: true
+    baseline-version: "1"
+
+  # Kafka
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: ${spring.application.name}
+      auto-offset-reset: earliest
+      # ErrorHandlingDeserializer keeps an unreadable record from becoming a poison pill:
+      # the failure is handed to the error handler instead of killing the consumer loop.
+      key-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      properties:
+        spring.deserializer:
+          key.delegate.class: org.apache.kafka.common.serialization.LongDeserializer
+          value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
+        spring.json:
+          # posts-service tags events with a logical name, mapped here onto our own
+          # copies of the payloads — the two modules share no package.
+          type.mapping: postCreated:com.orbitet.notificationservice.events.PostCreated,postLiked:com.orbitet.notificationservice.events.PostLiked
+          trusted.packages: com.orbitet.notificationservice.events
+    listener:
+      # Both topics have 3 partitions.
+      concurrency: 3
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8084/eureka
+
+# Server configs
+server:
+  port: 8085
