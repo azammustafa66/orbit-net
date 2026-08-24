@@ -1,6 +1,5 @@
 package com.orbitet.services;
 
-import com.orbitet.auth.AuthContextHolder;
 import com.orbitet.client.ConnectionServiceClient;
 import com.orbitet.dto.CreatePostRequestDto;
 import com.orbitet.dto.PagedResponse;
@@ -43,7 +42,7 @@ public class PostService {
         post.setUserId(userId);
         post = postRepo.saveAndFlush(post);
 
-        List<PersonDto> personDtoList = connectionServiceClient.getFirstDegreeConnections(userId);
+        List<PersonDto> personDtoList = connectionServiceClient.getFirstDegreeConnections();
 
         String sneakPeek = sneakPeek(post.getContent());
         for (var person : personDtoList) { // send notification to each connection
@@ -65,7 +64,7 @@ public class PostService {
     public PostDto getPostById(Long postId) {
         log.info("Getting post with id {}", postId);
 
-        List<PersonDto> personDtoList = connectionServiceClient.getFirstDegreeConnections(AuthContextHolder.getCurrentUserId());
+        List<PersonDto> personDtoList = connectionServiceClient.getFirstDegreeConnections();
 
         Post post = postRepo.findById(postId)
                 .orElseThrow(() -> new ResourceNotFoundException("Post not found with id " + postId));

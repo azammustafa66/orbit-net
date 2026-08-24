@@ -2,6 +2,7 @@ package com.orbitet.services;
 
 import com.orbitet.dto.*;
 import com.orbitet.entities.AppUser;
+import com.orbitet.event.UserCreatedEvent;
 import com.orbitet.exceptions.BadCredentialsException;
 import com.orbitet.exceptions.BadRequestException;
 import com.orbitet.repos.UserRepository;
@@ -10,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,6 +33,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final ModelMapper modelMapper;
     private final JwtService jwtService;
+    private final KafkaTemplate<String, UserCreatedEvent> userCreatedKafkaTemplate;
 
     @Transactional
     public SignUpResponseDto signUp(SignUpRequestDto signUpReq) {
@@ -53,6 +56,11 @@ public class UserService {
             log.warn("Concurrent signup lost the race for email {}", signUpReq.getEmail());
             throw new BadRequestException("User with this email already exists");
         }
+
+        UserCreatedEvent userCreatedEvent = UserCreatedEvent.builder()
+                .userId(savedUser.getId())
+                .name(savedUser.getFullName()).build();
+        userCreatedKafkaTemplate.send("user_created_topic", userCreatedEvent);
 
         SignUpResponseDto response = new SignUpResponseDto();
         response.setId(savedUser.getId());

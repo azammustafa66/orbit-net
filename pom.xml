@@ -20,6 +20,9 @@
 	<modules>
 		<module>posts-service</module>
 		<module>user-service</module>
+		<module>connection-service</module>
+		<module>api-gateway</module>
+		<module>discovery-service</module>
 	</modules>
 
 </project>

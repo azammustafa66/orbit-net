@@ -45,7 +45,7 @@ server:
 # Must stay identical to user-service's jwt.secret — that service signs the tokens this
 # gateway verifies. Dev default only; override with the JWT_SECRET env var everywhere else.
 jwt:
-  secret: '${JWT_SECRET:Y6p+WpI6q4wtr9nv0hYcLtUP7p6eoinove/qSeBU1rM=}'
+  secret: '${JWT_SECRET}'
 
 # Eureka Service Discovery
 eureka:

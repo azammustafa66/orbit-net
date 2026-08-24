@@ -15,8 +15,8 @@ public class ConnectionsController {
 
     private final ConnectionService connectionService;
 
-    @GetMapping("/{userId}/first-degree")
-    public ResponseEntity<List<Person>> getFirstDegreeConnections(@PathVariable Long userId, @RequestHeader("X-User-Id") Long userIdFromHeader) {
+    @GetMapping("/first-degree")
+    public ResponseEntity<List<Person>> getFirstDegreeConnections(@RequestHeader("X-User-Id") Long userId) {
         List<Person> personList = connectionService.getFirstDegreeConnections(userId);
         return ResponseEntity.ok(personList);
     }

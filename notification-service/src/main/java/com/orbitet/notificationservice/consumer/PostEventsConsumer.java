@@ -24,7 +24,7 @@ public class PostEventsConsumer {
 
     @KafkaListener(topics = "post_created_topic")
     public void handlePostCreated(PostCreated event) {
-        log.info("Received post_created event: {}", event);
+        log.info("Received post_created event: {}", event.toString());
         notificationService.notifyUser(
                 event.getUserId(),
                 "User %d posted: %s".formatted(event.getCreatedByUserId(), event.getContentSneakPeek()));

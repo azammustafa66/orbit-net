@@ -6,6 +6,29 @@ spring:
       username: neo4j
       password: ${NEO4J_PASSWORD}
     uri: bolt://localhost:7687
+
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: ${spring.application.name}
+      auto-offset-reset: earliest
+      # ErrorHandlingDeserializer keeps an unreadable record from becoming a poison pill:
+      # the failure is handed to the error handler instead of killing the consumer loop.
+      key-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      properties:
+        spring.deserializer:
+          key.delegate.class: org.apache.kafka.common.serialization.StringDeserializer
+          value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
+        spring.json:
+          # user-service tags the event with a logical name, mapped here onto our own
+          # copy of the payload — the two modules share no package.
+          type.mapping: userCreated:com.orbitet.userService.event.UserCreatedEvent
+          trusted.packages: com.orbitet.userService.event
+    listener:
+      # user_created_topic has 3 partitions.
+      concurrency: 3
+
 server:
   port: 8082
   servlet:
