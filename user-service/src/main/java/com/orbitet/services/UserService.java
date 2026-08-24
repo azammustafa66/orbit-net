@@ -10,8 +10,8 @@ import com.orbitet.utils.BCrypt;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,7 +33,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final ModelMapper modelMapper;
     private final JwtService jwtService;
-    private final KafkaTemplate<String, UserCreatedEvent> userCreatedKafkaTemplate;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public SignUpResponseDto signUp(SignUpRequestDto signUpReq) {
@@ -57,10 +57,12 @@ public class UserService {
             throw new BadRequestException("User with this email already exists");
         }
 
-        UserCreatedEvent userCreatedEvent = UserCreatedEvent.builder()
+        // Handed to UserCreatedEventPublisher, which reaches Kafka only after this
+        // transaction commits — see the note there on why publishing early is unsafe.
+        eventPublisher.publishEvent(UserCreatedEvent.builder()
                 .userId(savedUser.getId())
-                .name(savedUser.getFullName()).build();
-        userCreatedKafkaTemplate.send("user_created_topic", userCreatedEvent);
+                .name(savedUser.getFullName())
+                .build());
 
         SignUpResponseDto response = new SignUpResponseDto();
         response.setId(savedUser.getId());

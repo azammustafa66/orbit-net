@@ -64,8 +64,6 @@ public class PostService {
     public PostDto getPostById(Long postId) {
         log.info("Getting post with id {}", postId);
 
-        List<PersonDto> personDtoList = connectionServiceClient.getFirstDegreeConnections();
-
         Post post = postRepo.findById(postId)
                 .orElseThrow(() -> new ResourceNotFoundException("Post not found with id " + postId));
         return PostDto.from(post);

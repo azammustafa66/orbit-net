@@ -1,6 +1,5 @@
 package com.orbitet.services;
 
-import com.orbitet.entities.Person;
 import com.orbitet.repository.PersonRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -13,8 +12,13 @@ public class PersonService {
 
     private final PersonRepository personRepository;
 
+    /**
+     * Safe to call more than once for the same user — the underlying query merges on
+     * {@code userId}, so a redelivered event updates the existing node instead of
+     * adding a second one.
+     */
     public void createPerson(Long userId, String name) {
-        Person person = Person.builder().userId(userId).name(name).build();
-        personRepository.save(person);
+        log.info("Creating person for user {}", userId);
+        personRepository.upsertByUserId(userId, name);
     }
 }

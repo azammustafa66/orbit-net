@@ -22,7 +22,11 @@ import java.util.*;
 
 /**
  * Extracts the user id from the bearer token and passes it downstream as {@code X-User-Id}.
- * Requests without a valid token are forwarded unchanged.
+ * <p>
+ * The gateway-owned headers are always answered from the verified claims and never from
+ * the inbound request, so a client that sends its own {@code X-User-Id} has it stripped
+ * rather than forwarded. That is what lets downstream services treat the header as proof
+ * the gateway validated a token; without a valid token the headers are simply absent.
  */
 @Component
 public class AuthFilter extends OncePerRequestFilter {
