@@ -39,11 +39,17 @@ spring:
                 - Path=/api/v1/notifications/**
 
 server:
+  # Never leak internals to a caller; stack traces belong in the log, not the response.
+  error:
+    include-stacktrace: never
+    include-message: always
   port: 8083
 
 # JWT
 # Must stay identical to user-service's jwt.secret — that service signs the tokens this
-# gateway verifies. Dev default only; override with the JWT_SECRET env var everywhere else.
+# gateway verifies. No default on purpose: a fallback here would let the gateway boot with
+# a known key and silently accept forged tokens, so a missing JWT_SECRET must fail startup.
+# Base64 of at least 32 bytes (HS256). Tests supply their own value.
 jwt:
   secret: '${JWT_SECRET}'
 
@@ -51,4 +57,4 @@ jwt:
 eureka:
   client:
     service-url:
-      defaultZone: http://localhost:8084/eureka
+      defaultZone: "${EUREKA_URL:http://localhost:8084/eureka}"

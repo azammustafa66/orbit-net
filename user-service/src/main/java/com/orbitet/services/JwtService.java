@@ -39,6 +39,10 @@ public class JwtService {
                 .signWith(key).compact();
     }
 
+    /**
+     * @throws io.jsonwebtoken.JwtException if the token is missing, expired, or its
+     *         signature doesn't verify
+     */
     public String retrieveUserIdFromToken(String token) {
         Claims claims = Jwts.parser()
                 .verifyWith(key)

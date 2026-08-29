@@ -3,9 +3,9 @@ spring:
     name: notification-service
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/notification-service
-    username: admin
-    password: admin
+    url: "jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/notification-service"
+    username: "${DB_USER:admin}"
+    password: "${DB_PASSWORD:admin}"
     driver-class-name: org.postgresql.Driver
 
   # Hibernate
@@ -24,7 +24,7 @@ spring:
 
   # Kafka
   kafka:
-    bootstrap-servers: localhost:9092
+    bootstrap-servers: "${KAFKA_BOOTSTRAP:localhost:9092}"
     consumer:
       group-id: ${spring.application.name}
       auto-offset-reset: earliest
@@ -48,8 +48,12 @@ spring:
 eureka:
   client:
     service-url:
-      defaultZone: http://localhost:8084/eureka
+      defaultZone: "${EUREKA_URL:http://localhost:8084/eureka}"
 
 # Server configs
 server:
+  # Never leak internals to a caller; stack traces belong in the log, not the response.
+  error:
+    include-stacktrace: never
+    include-message: always
   port: 8085

@@ -4,9 +4,9 @@ spring:
 
   # Data source
   datasource:
-    url: jdbc:postgresql://localhost:5432/user-service
-    username: admin
-    password: admin
+    url: "jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/user-service"
+    username: "${DB_USER:admin}"
+    password: "${DB_PASSWORD:admin}"
     driver-class-name: org.postgresql.Driver
 
   # Hibernate
@@ -26,7 +26,7 @@ spring:
 
   # Kafka
   kafka:
-    bootstrap-servers: localhost:9092
+    bootstrap-servers: "${KAFKA_BOOTSTRAP:localhost:9092}"
     producer:
       # KafkaTemplate here is keyed by String; the key is currently left null, so this
       # only has to agree with the consumer's key deserializer.
@@ -39,19 +39,25 @@ spring:
           type.mapping: userCreated:com.orbitet.event.UserCreatedEvent
 
 server:
+  # Never leak internals to a caller; stack traces belong in the log, not the response.
+  error:
+    include-stacktrace: never
+    include-message: always
   port: 8081
   servlet:
     context-path: /api/v1/users
 
 # JWT
-# Dev default only — override with the JWT_SECRET env var (or the config server) in any
-# deployed environment, and keep the real secret out of version control.
+# Signs the tokens api-gateway verifies, so this must stay identical to its jwt.secret.
+# No default on purpose: a fallback would let this service boot with a known key and mint
+# forgeable tokens, so a missing JWT_SECRET must fail startup.
+# Base64 of at least 32 bytes (HS256). Tests supply their own value.
 jwt:
-  secret: '${JWT_SECRET:Y6p+WpI6q4wtr9nv0hYcLtUP7p6eoinove/qSeBU1rM=}'
+  secret: '${JWT_SECRET}'
   expiration-ms: 3600000
 
 # Service discovery
 eureka:
   client:
     service-url:
-      defaultZone: http://localhost:8084/eureka
+      defaultZone: "${EUREKA_URL:http://localhost:8084/eureka}"

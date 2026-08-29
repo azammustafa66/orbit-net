@@ -2,6 +2,10 @@ package com.orbitet.auth;
 
 import com.orbitet.exceptions.UnauthorizedException;
 
+/**
+ * Per-request holder for the caller's id, populated by {@link RequestInterceptor} from the
+ * gateway's {@code X-User-Id} header.
+ */
 public class AuthContextHolder {
 
     private static final ThreadLocal<Long> currentUserId = new ThreadLocal<>();

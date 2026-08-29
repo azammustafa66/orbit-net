@@ -3,6 +3,10 @@ spring:
     name: discovery-service
 
 server:
+  # Never leak internals to a caller; stack traces belong in the log, not the response.
+  error:
+    include-stacktrace: never
+    include-message: always
   port: 8084
 
 eureka:
@@ -14,4 +18,4 @@ eureka:
     # (localhost:8761) and floods the log with connection-refused retries. Naming
     # ourselves here makes the peer list self-only, which Eureka skips.
     service-url:
-      defaultZone: http://localhost:8084/eureka/
+      defaultZone: "${EUREKA_URL:http://localhost:8084/eureka/}"

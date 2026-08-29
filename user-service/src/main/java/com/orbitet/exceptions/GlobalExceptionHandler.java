@@ -21,6 +21,9 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 
+/**
+ * Maps exceptions to the uniform {@link ApiError} body so controllers don't each have to.
+ */
 @RestControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {

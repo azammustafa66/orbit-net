@@ -15,6 +15,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * Thin HTTP layer over {@link UserService} — validation and the actual signup/login logic
+ * live there, this just maps the result onto a status code.
+ */
 @RestController
 @RequestMapping("/auth")
 @RequiredArgsConstructor

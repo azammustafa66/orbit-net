@@ -1,6 +1,5 @@
 package com.orbitet.repos;
 
-
 import com.orbitet.entities.PostLike;
 import org.springframework.data.jpa.repository.JpaRepository;
 

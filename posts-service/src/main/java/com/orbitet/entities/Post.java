@@ -22,6 +22,8 @@ public class Post {
     @Column(nullable = false)
     private Long userId;
 
+    private String imageUrl;
+
     @CreationTimestamp
     private LocalDateTime createdAt;
 

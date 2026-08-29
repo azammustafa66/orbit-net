@@ -7,6 +7,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 
+/**
+ * Mirrors user-service accounts into the connection graph so a newly created user has a
+ * {@code Person} node to connect to immediately, without a synchronous call to user-service.
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j

@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Configuration;
 
 import java.util.Map;
 
+/** Wires the Cloudinary client from env-backed config; credentials never live in source or in application.yaml. */
 @Configuration
 public class UploaderConfig {
 

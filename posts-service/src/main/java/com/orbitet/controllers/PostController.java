@@ -10,8 +10,10 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequiredArgsConstructor
@@ -20,10 +22,15 @@ public class PostController {
 
     private final PostService postService;
 
-    @PostMapping
+    /**
+     * The post body travels as a JSON part alongside the optional file — the two can't
+     * share one multipart request under a plain {@code @RequestBody}.
+     */
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<PostDto> createPost(
-            @Valid @RequestBody CreatePostRequestDto postCreateReq) {
-        PostDto postDto = postService.createPost(postCreateReq, AuthContextHolder.requireCurrentUserId());
+            @Valid @RequestPart("post") CreatePostRequestDto postCreateReq,
+            @RequestPart(value = "file", required = false) MultipartFile file) {
+        PostDto postDto = postService.createPost(postCreateReq, AuthContextHolder.requireCurrentUserId(), file);
         return new ResponseEntity<>(postDto, HttpStatus.CREATED);
     }
 

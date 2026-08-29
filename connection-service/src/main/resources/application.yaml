@@ -5,10 +5,10 @@ spring:
     authentication:
       username: neo4j
       password: ${NEO4J_PASSWORD}
-    uri: bolt://localhost:7687
+    uri: "${NEO4J_URI:bolt://localhost:7687}"
 
   kafka:
-    bootstrap-servers: localhost:9092
+    bootstrap-servers: "${KAFKA_BOOTSTRAP:localhost:9092}"
     consumer:
       group-id: ${spring.application.name}
       auto-offset-reset: earliest
@@ -30,6 +30,10 @@ spring:
       concurrency: 3
 
 server:
+  # Never leak internals to a caller; stack traces belong in the log, not the response.
+  error:
+    include-stacktrace: never
+    include-message: always
   port: 8082
   servlet:
     context-path: /api/v1/connections
@@ -38,4 +42,4 @@ server:
 eureka:
   client:
     service-url:
-      defaultZone: http://localhost:8084/eureka
+      defaultZone: "${EUREKA_URL:http://localhost:8084/eureka}"

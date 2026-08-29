@@ -1,6 +1,7 @@
 package com.orbitet.services;
 
 import com.orbitet.client.ConnectionServiceClient;
+import com.orbitet.client.UploaderServiceClient;
 import com.orbitet.dto.CreatePostRequestDto;
 import com.orbitet.dto.PagedResponse;
 import com.orbitet.dto.PersonDto;
@@ -12,7 +13,6 @@ import com.orbitet.repos.PostRepo;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
-import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -20,6 +20,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -31,15 +32,21 @@ public class PostService {
     private final PostRepo postRepo;
     private final ModelMapper modelMapper;
     private final ConnectionServiceClient connectionServiceClient;
-    private final KafkaTemplate<Long, PostCreated> postCreatedTemplate;
+    private final KafkaTemplate<Long, PostCreated> postCreatedKafkaTemplate;
+    private final UploaderServiceClient uploaderServiceClient;
 
     private static final int SNEAK_PEEK_LENGTH = 120;
 
     @Transactional
-    public PostDto createPost(CreatePostRequestDto postCreateReq, Long userId) {
+    public PostDto createPost(CreatePostRequestDto postCreateReq, Long userId, MultipartFile file) {
         log.info("Creating a post for user id {}", userId);
+
         Post post = modelMapper.map(postCreateReq, Post.class);
         post.setUserId(userId);
+        // The image is optional — a text-only post skips the upload round trip entirely.
+        if (file != null && !file.isEmpty()) {
+            post.setImageUrl(uploaderServiceClient.upload(file).getBody());
+        }
         post = postRepo.saveAndFlush(post);
 
         List<PersonDto> personDtoList = connectionServiceClient.getFirstDegreeConnections();
@@ -54,7 +61,7 @@ public class PostService {
                     .build();
             // Keyed by recipient so every notification for one user lands on the same
             // partition, and so stays ordered.
-            postCreatedTemplate.send("post_created_topic", person.getUserId(), postCreated);
+            postCreatedKafkaTemplate.send("post_created_topic", person.getUserId(), postCreated);
         }
 
         return PostDto.from(post);
@@ -80,10 +87,12 @@ public class PostService {
         return PagedResponse.from(posts);
     }
 
-    /** Keeps the event payload small — subscribers only show a preview of the post. */
+    /**
+     * Keeps the event payload small — subscribers only show a preview of the post.
+     */
     private static String sneakPeek(String content) {
         return content.length() <= SNEAK_PEEK_LENGTH
                 ? content
-                : content.substring(0, SNEAK_PEEK_LENGTH) + "\u2026";
+                : content.substring(0, SNEAK_PEEK_LENGTH) + "…";
     }
 }

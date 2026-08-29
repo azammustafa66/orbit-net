@@ -37,6 +37,7 @@ Users register, publish posts, like them, and build a connection graph; notifica
 | `posts-service` | 8080 | PostgreSQL `posts-service` | Posts, feed pagination, likes |
 | `connection-service` | 8082 | Neo4j | Connection graph, degree traversal |
 | `notification-service` | 8085 | PostgreSQL `notification-service` | Consumes events, serves notifications |
+| `uploader-service` | 8086 | Cloudinary | Image upload; reached service-to-service, not via the gateway |
 
 ---
 
@@ -168,11 +169,12 @@ cd user-service       && mvn spring-boot:run  # 8081
 cd posts-service      && mvn spring-boot:run  # 8080
 cd connection-service && mvn spring-boot:run  # 8082
 cd notification-service && mvn spring-boot:run # 8085
+cd uploader-service   && mvn spring-boot:run  # 8086 — needs the CLOUDINARY_* env vars
 ```
 
 Registration takes a few seconds to appear — Eureka's response cache refreshes on a ~30s interval, so a service can be up and serving before it shows in `/eureka/apps`.
 
-> **Note:** the root `pom.xml` currently aggregates only `posts-service` and `user-service`, so a build from the repository root skips the other four. Build them from their own directories until the remaining modules are added to the reactor.
+> **Note:** the root `pom.xml` aggregates all seven modules, so `mvn clean package -DskipTests` from the repository root builds everything. Container images are not part of that build — publishing is an explicit `mvn package -Prelease`, and `mvn jib:dockerBuild -Prelease` builds into the local Docker daemon without pushing.
 
 ---
 
@@ -209,12 +211,22 @@ Passwords are BCrypt-hashed and bounded to 72 bytes (BCrypt's real ceiling — a
 | `POST` | `/api/v1/posts/likes/{postId}` | Like a post |
 | `DELETE` | `/api/v1/posts/likes/{postId}` | Remove a like |
 
+Creating a post is `multipart/form-data`, not JSON: the body travels as a `post` part and an optional `file` part carries an image.
+
 ```bash
+# text-only
 curl -X POST localhost:8083/api/v1/posts \
   -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' \
-  -d '{"content":"first post"}'
+  -F 'post={"content":"first post"};type=application/json'
+
+# with an image
+curl -X POST localhost:8083/api/v1/posts \
+  -H "Authorization: Bearer $TOKEN" \
+  -F 'post={"content":"first post"};type=application/json' \
+  -F 'file=@photo.png'
 ```
+
+When a `file` part is present, posts-service forwards it to uploader-service and stores the returned Cloudinary URL on the post; omit the part and the post is text-only.
 
 Creating a post asks connection-service for the author's first-degree connections, then emits one `post_created` event per recipient.
 
@@ -222,7 +234,7 @@ Pages are **1-indexed**; `size` accepts 1–50.
 
 ```json
 {
-  "content": [ { "postId": 1, "userId": 7, "content": "…" } ],
+  "content": [ { "postId": 1, "userId": 7, "content": "…", "imageUrl": null } ],
   "page": 1, "size": 10, "totalElements": 1, "totalPages": 1, "hasNext": false
 }
 ```
@@ -232,10 +244,13 @@ Pages are **1-indexed**; `size` accepts 1–50.
 | Method | Endpoint | Description |
 | --- | --- | --- |
 | `GET` | `/api/v1/connections/first-degree` | The caller's direct connections |
+| `POST` | `/api/v1/connections/request/{userId}` | Send a connection request to `{userId}` |
+| `POST` | `/api/v1/connections/request/accept-connection/{userId}` | Accept the request `{userId}` sent you |
+| `POST` | `/api/v1/connections/request/reject-connection/{userId}` | Reject the request `{userId}` sent you |
 
-Identity comes from the `X-User-Id` header, so the endpoint always serves the caller's own graph rather than an arbitrary user's.
+Identity comes from the `X-User-Id` header, so these endpoints always act as the caller rather than an arbitrary user. On accept and reject, `{userId}` is the user who *raised* the request — the edge runs requester → recipient, and the caller is the recipient.
 
-> Connection **requests** (send / accept / reject) are in progress and not yet callable.
+A request is refused if one is already pending or the pair is already connected; accepting one that doesn't exist fails rather than silently doing nothing.
 
 ### Notifications — notification-service
 
@@ -287,7 +302,8 @@ orbit-net/
 ├── user-service/           accounts, auth, JWT issuance         (8081)
 ├── posts-service/          posts, likes, feed pagination        (8080)
 ├── connection-service/     connection graph on Neo4j            (8082)
-└── notification-service/   event consumer, notifications        (8085)
+├── notification-service/   event consumer, notifications        (8085)
+└── uploader-service/       Cloudinary image upload              (8086)
 ```
 
 ---

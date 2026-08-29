@@ -6,6 +6,10 @@ import org.springframework.http.HttpStatus;
 import java.time.LocalDateTime;
 import java.util.Map;
 
+/**
+ * Uniform error body returned by {@link GlobalExceptionHandler}; fieldErrors is only
+ * populated for request-validation failures, so it stays null everywhere else.
+ */
 @Getter
 public class ApiError {
 

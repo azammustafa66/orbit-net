@@ -7,6 +7,10 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
+/**
+ * Populates {@link AuthContextHolder} from the {@code X-User-Id} header the gateway sets
+ * on an authenticated request, and clears it once the request completes.
+ */
 @Component
 public class RequestInterceptor implements HandlerInterceptor {
 

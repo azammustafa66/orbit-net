@@ -21,12 +21,17 @@ import java.io.IOException;
 import java.util.*;
 
 /**
- * Extracts the user id from the bearer token and passes it downstream as {@code X-User-Id}.
+ * Extracts the caller's identity from the bearer token and passes it downstream as
+ * {@code X-User-Id} (plus {@code X-User-Email} when that claim is present).
+ * <p>
+ * Runs on every request — there is no path exemption list — but never rejects a request
+ * itself: a missing, malformed, or expired token just means the headers come through empty,
+ * leaving it to the downstream service to decide whether that endpoint requires a caller.
  * <p>
  * The gateway-owned headers are always answered from the verified claims and never from
  * the inbound request, so a client that sends its own {@code X-User-Id} has it stripped
  * rather than forwarded. That is what lets downstream services treat the header as proof
- * the gateway validated a token; without a valid token the headers are simply absent.
+ * the gateway validated a token.
  */
 @Component
 public class AuthFilter extends OncePerRequestFilter {
