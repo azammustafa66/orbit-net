@@ -2,13 +2,12 @@
 
 A LinkedIn-style professional social network, built as a set of Spring Boot microservices.
 
-Users publish posts, like them, and build a connection graph; notifications fan out asynchronously over Kafka. The system is designed to be deployed on Kubernetes behind an API gateway.
+Users register, publish posts, like them, and build a connection graph; notifications fan out asynchronously over Kafka. All traffic enters through an API gateway that validates JWTs — every other service sits behind it on a private network.
 
 - **Repository** — https://github.com/azammustafa66/orbit-net
 - **Live demo** — [TODO]
 - **API documentation (Swagger / OpenAPI)** — [TODO]
 - **Postman collection** — [TODO]
-- **Project board / roadmap** — [TODO]
 
 ---
 
@@ -16,38 +15,63 @@ Users publish posts, like them, and build a connection graph; notifications fan 
 
 ![OrbitNet architecture](docs/images/architecture.png)
 
-**Request path.** Client traffic reaches a firewall / WAF, then the **API Gateway** — the only component with a public IP. The gateway handles routing (`/auth/login`, `/posts/create`, …), and validates the JWT once, forwarding the resolved user identity to downstream services. Everything behind it lives in a private subnet and is addressable only by private IP.
+<sub>Source: <code>docs/images/architecture.svg</code> — edit the SVG and re-export the PNG.</sub>
 
-**Service discovery and config.** A **Service Registry** provides discovery and client-side load balancing so services address each other by name rather than by IP. A **Config Server** centralizes configuration across environments.
+**Request path.** Client traffic reaches the **API Gateway** — the only component with a public IP. It validates the JWT once, resolves the caller's identity, and forwards it downstream as an `X-User-Id` header. Everything behind the gateway lives in a private subnet and is addressable only by private IP.
 
-**Data ownership.** Every service owns its database — `user_db`, `posts_db`, `notification_db`, `connections_db`. No service reads another service's tables; cross-service reads go through APIs or events.
+**Service discovery.** A **Eureka** registry provides discovery and client-side load balancing, so services address each other by name (`lb://POSTS-SERVICE`) rather than by IP. Configuration lives in each service's own `application.yaml`; there is no config server.
 
-**Asynchronous messaging.** Posts Service emits `post_created` and `post_liked` events to **Kafka**. Notification Service consumes them and fans out notifications, so a like never blocks on notification delivery.
+**Data ownership.** Every service owns its database and no service reads another's tables. Cross-service reads go through APIs or events.
 
-**Media.** Uploader Service pushes media to external object storage (Cloudinary / Google Cloud Storage) rather than storing binaries in a service database.
+**Asynchronous messaging.** user-service and posts-service emit domain events to **Kafka**; connection-service and notification-service consume them. A signup never blocks on graph writes, and a like never blocks on notification delivery.
 
-**Observability.** **Zipkin** for distributed tracing across API calls, **ELK** (Elasticsearch, Logstash, Kibana) for centralized logging.
-
-**Delivery.** CI/CD through GitHub and Jenkins, deployed to Kubernetes:
-
-| Kubernetes object | Workloads |
-| --- | --- |
-| **Deployments** | `api-gateway`, `service-registry`, `user-service`, `posts-service`, `notifications-service`, `uploader-service` |
-| **StatefulSets** | `user_db`, `posts_db`, `notification_db`, `connections_db`, `kafka` |
-| **Supporting** | ELK stack, Zipkin |
+**Observability.** Zipkin tracing and ELK logging are planned, not yet wired up.
 
 ### Services
 
-| Service | Port | Database | Status |
+| Service | Port | Store | Role |
 | --- | --- | --- | --- |
-| posts-service | 8080 | `posts-service` | Implemented — posts CRUD, pagination, likes |
-| user-service | 8081 | `user-service` | Scaffolded |
-| api-gateway | — | — | Planned |
-| service-registry | — | — | Planned |
-| connections-service | — | `connections_db` (Neo4j) | Planned |
-| notification-service | — | `notification_db` | Planned |
-| uploader-service | — | — | Planned |
-| config-server | — | — | Planned |
+| `api-gateway` | 8083 | — | Public entry point; JWT validation, routing |
+| `discovery-service` | 8084 | — | Eureka registry |
+| `user-service` | 8081 | PostgreSQL `user-service` | Accounts, signup, login, JWT issuance |
+| `posts-service` | 8080 | PostgreSQL `posts-service` | Posts, feed pagination, likes |
+| `connection-service` | 8082 | Neo4j | Connection graph, degree traversal |
+| `notification-service` | 8085 | PostgreSQL `notification-service` | Consumes events, serves notifications |
+
+---
+
+## Authentication
+
+user-service signs a JWT at login. The gateway verifies it and translates it into a plain header for the private network:
+
+```
+client ──JWT──▶ api-gateway ──X-User-Id──▶ service
+```
+
+Downstream services trust `X-User-Id` at face value, which is safe only because the gateway is the sole route into the subnet. To keep that true, `AuthFilter` **always strips** inbound `X-User-Id` and `X-User-Email` headers and re-adds them only from verified claims — a client that sends its own `X-User-Id` has it discarded, not forwarded.
+
+Two consequences worth knowing:
+
+- The gateway does **not** reject unauthenticated requests, because `/api/v1/users/auth/**` must stay anonymous. Each service decides what it requires, so a protected endpoint called without a token currently fails as a `400` (missing header) rather than a `401`.
+- `jwt.secret` must be **identical** in api-gateway and user-service — one signs, the other verifies.
+
+---
+
+## Events
+
+| Topic | Partitions | Producer | Consumer | Effect |
+| --- | --- | --- | --- | --- |
+| `user_created_topic` | 3 | user-service | connection-service | Creates the user's `Person` node in the graph |
+| `post_created_topic` | 3 | posts-service | notification-service | Notifies each first-degree connection |
+| `post_liked_topic` | 3 | posts-service | notification-service | Notifies the post's author |
+
+**Payload contract.** Producers tag each event with a logical name (`userCreated`, `postCreated`, `postLiked`) via `spring.json.type.mapping`, and consumers map that name onto their own copy of the payload. The two sides share no package and no jar, so an event class can be renamed on one side without breaking the other.
+
+**Delivery semantics.** Kafka is at-least-once, so consumers must tolerate redelivery. `user_created_topic` is handled with a Neo4j `MERGE` on `userId`, making repeated delivery a no-op rather than a duplicate node.
+
+**Ordering with the transaction.** user-service publishes from an `AFTER_COMMIT` transaction listener, so an event is never emitted for a signup that later rolls back.
+
+Both consumers wrap their deserializers in `ErrorHandlingDeserializer`, so an unreadable record goes to the error handler instead of becoming a poison pill that stalls the partition.
 
 ---
 
@@ -77,15 +101,15 @@ user1 -> user4
 
 First- and second-degree lookups become pointer traversals from a starting node, proportional to the neighbourhood actually visited rather than to the size of the table.
 
-**Decision:** `connections-service` will use Neo4j; the other services stay on PostgreSQL, where relational integrity and transactions matter more than traversal depth.
+**Decision:** connection-service uses Neo4j; the other services stay on PostgreSQL, where relational integrity and transactions matter more than traversal depth.
 
 ---
 
 ## Tech stack
 
-**In use:** Java 21 · Spring Boot 4.1.0 · Spring Web MVC · Spring Data JPA (Hibernate 7) · PostgreSQL 16 · Bean Validation (Hibernate Validator) · Lombok · ModelMapper · JJWT · Maven
+Java 21 · Spring Boot 4.1 · Spring Cloud 2025.1.2 · Spring Cloud Gateway (MVC) · Netflix Eureka · Spring Web MVC · Spring Data JPA (Hibernate 7) · Spring Data Neo4j · Spring for Apache Kafka · PostgreSQL 16 · Neo4j 5 · Flyway · Bean Validation · JJWT · Lombok · ModelMapper · Testcontainers · Maven
 
-**Planned:** Spring Cloud Gateway · Netflix Eureka / Spring Cloud Config · Apache Kafka · Neo4j · Zipkin · ELK · Docker · Kubernetes · Jenkins
+**Planned:** Zipkin · ELK · Docker images · Kubernetes manifests · CI/CD
 
 ---
 
@@ -94,101 +118,138 @@ First- and second-degree lookups become pointer traversals from a starting node,
 ### Prerequisites
 
 - JDK 21
-- Docker (for PostgreSQL)
-- Maven wrapper (`./mvnw`, included per service)
+- Docker
+- Maven
 
-### 1. Start PostgreSQL
+### 1. Start the infrastructure
 
 ```bash
+# PostgreSQL
 docker run -d --name postgres_db \
-  -e POSTGRES_USER=admin \
-  -e POSTGRES_PASSWORD=admin \
-  -p 5432:5432 \
-  postgres:16
+  -e POSTGRES_USER=admin -e POSTGRES_PASSWORD=admin \
+  -p 5432:5432 postgres:16
+
+# Kafka (KRaft, no ZooKeeper)
+docker run -d --name kafka_broker -p 9092:9092 apache/kafka:3.9.0
+
+# Neo4j
+docker run -d --name neo4j_db \
+  -e NEO4J_AUTH=neo4j/<your-password> \
+  -p 7474:7474 -p 7687:7687 neo4j:5-community
 ```
 
-### 2. Create the per-service databases
+### 2. Create the PostgreSQL databases
+
+Each service owns one; Flyway creates the tables on first boot.
 
 ```bash
-docker exec postgres_db psql -U admin -d postgres -c 'create database "posts-service"'
-docker exec postgres_db psql -U admin -d postgres -c 'create database "user-service"'
+for db in user-service posts-service notification-service; do
+  docker exec postgres_db psql -U admin -d postgres -c "create database \"$db\""
+done
 ```
 
-### 3. Configure
-
-Each service reads `src/main/resources/application.properties`:
-
-```properties
-spring.datasource.url=jdbc:postgresql://localhost:5432/posts-service
-spring.datasource.username=admin
-spring.datasource.password=admin
-spring.jpa.hibernate.ddl-auto=update
-```
-
-> Schema is currently managed by Hibernate `ddl-auto=update`. Flyway migrations are on the roadmap before any deployment that has to preserve data.
-
-### 4. Run a service
+### 3. Set the environment
 
 ```bash
-cd posts-service
-./mvnw spring-boot:run
+export JWT_SECRET='<base64-encoded HMAC secret>'   # same value for gateway and user-service
+export NEO4J_PASSWORD='<your-password>'            # connection-service
 ```
 
-The service starts on `http://localhost:8080` and creates its tables on first boot.
+`JWT_SECRET` is required by api-gateway — it has no fallback. Keep real secrets out of version control.
+
+### 4. Run the services
+
+Start `discovery-service` **first** so the others can register; the rest can start in any order.
+
+```bash
+cd discovery-service && mvn spring-boot:run   # 8084 — wait for this one
+cd api-gateway        && mvn spring-boot:run  # 8083
+cd user-service       && mvn spring-boot:run  # 8081
+cd posts-service      && mvn spring-boot:run  # 8080
+cd connection-service && mvn spring-boot:run  # 8082
+cd notification-service && mvn spring-boot:run # 8085
+```
+
+Registration takes a few seconds to appear — Eureka's response cache refreshes on a ~30s interval, so a service can be up and serving before it shows in `/eureka/apps`.
+
+> **Note:** the root `pom.xml` currently aggregates only `posts-service` and `user-service`, so a build from the repository root skips the other four. Build them from their own directories until the remaining modules are added to the reactor.
 
 ---
 
-## API — posts-service
+## API
 
-Base path: `/api/v1/core/posts`
+All examples go through the gateway on `http://localhost:8083`. Every endpoint except signup and login needs `Authorization: Bearer <token>`.
 
-Until the API gateway is in place, the caller's identity is read from an `X-User-Id` header (defaulting to `1`). The gateway will supply this header from a validated JWT.
+### Auth — user-service
 
 | Method | Endpoint | Description |
 | --- | --- | --- |
-| `POST` | `/api/v1/core/posts` | Create a post |
-| `GET` | `/api/v1/core/posts/{postId}` | Fetch a single post |
-| `GET` | `/api/v1/core/posts/users/{userId}?page=1&size=10` | Page through a user's posts, newest first |
-| `POST` | `/api/v1/core/posts/likes/{postId}` | Like a post |
-| `DELETE` | `/api/v1/core/posts/likes/{postId}` | Remove a like |
-
-### Create a post
+| `POST` | `/api/v1/users/auth/signup` | Register; emits `user_created_topic` |
+| `POST` | `/api/v1/users/auth/login` | Exchange credentials for a JWT |
 
 ```bash
-curl -X POST localhost:8080/api/v1/core/posts \
+curl -X POST localhost:8083/api/v1/users/auth/signup \
   -H 'Content-Type: application/json' \
-  -H 'X-User-Id: 7' \
-  -d '{"content":"post to be liked"}'
+  -d '{"email":"ada@orbitnet.dev","password":"Passw0rd123!","fullName":"Ada Lovelace"}'
 ```
 
 ```json
-{
-  "postId": 1,
-  "userId": 7,
-  "content": "post to be liked",
-  "createdAt": "2026-08-15T18:58:07.461125",
-  "updatedAt": "2026-08-15T18:58:07.461152"
-}
+{ "id": 1, "name": "Ada Lovelace", "email": "ada@orbitnet.dev", "accountCreated": true }
 ```
 
-### Page through a user's posts
+Passwords are BCrypt-hashed and bounded to 72 bytes (BCrypt's real ceiling — accented characters and emoji count as more than one). Login returns the same message and takes the same time whether the email is unknown or the password is wrong, so the endpoint does not leak which accounts exist.
+
+### Posts — posts-service
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `POST` | `/api/v1/posts` | Create a post; fans out to first-degree connections |
+| `GET` | `/api/v1/posts/{postId}` | Fetch a single post |
+| `GET` | `/api/v1/posts/users/{userId}?page=1&size=10` | Page through a user's posts, newest first |
+| `POST` | `/api/v1/posts/likes/{postId}` | Like a post |
+| `DELETE` | `/api/v1/posts/likes/{postId}` | Remove a like |
+
+```bash
+curl -X POST localhost:8083/api/v1/posts \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"content":"first post"}'
+```
+
+Creating a post asks connection-service for the author's first-degree connections, then emits one `post_created` event per recipient.
 
 Pages are **1-indexed**; `size` accepts 1–50.
 
 ```json
 {
   "content": [ { "postId": 1, "userId": 7, "content": "…" } ],
-  "page": 1,
-  "size": 10,
-  "totalElements": 1,
-  "totalPages": 1,
-  "hasNext": false
+  "page": 1, "size": 10, "totalElements": 1, "totalPages": 1, "hasNext": false
 }
 ```
 
+### Connections — connection-service
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `GET` | `/api/v1/connections/first-degree` | The caller's direct connections |
+
+Identity comes from the `X-User-Id` header, so the endpoint always serves the caller's own graph rather than an arbitrary user's.
+
+> Connection **requests** (send / accept / reject) are in progress and not yet callable.
+
+### Notifications — notification-service
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `GET` | `/api/v1/notifications?page=1&size=10` | The caller's notifications, newest first |
+| `GET` | `/api/v1/notifications/unread-count` | `{"unread": 3}` |
+| `PATCH` | `/api/v1/notifications/{id}/read` | Mark one as read |
+
+Marking a notification read is scoped to the owner — another user's notification returns `404`, not `403`, so the endpoint does not confirm that the id exists.
+
 ### Errors
 
-All failures return a consistent envelope, with `fieldErrors` populated for validation failures:
+Failures return a consistent envelope, with `fieldErrors` populated for validation failures:
 
 ```json
 {
@@ -201,9 +262,18 @@ All failures return a consistent envelope, with `fieldErrors` populated for vali
 
 | Status | Raised when |
 | --- | --- |
-| `400` | Blank/oversized content, out-of-range paging params, malformed path variables, duplicate like, unlike without a like |
-| `404` | Post does not exist |
+| `400` | Validation failure, out-of-range paging params, duplicate like, unlike without a like, missing identity header |
+| `401` | Bad credentials, or a protected action attempted without a resolved identity |
+| `404` | Resource does not exist, or belongs to another user |
 | `500` | Unexpected — logged server-side, generic message returned |
+
+---
+
+## Schema management
+
+Flyway owns the schema in every PostgreSQL service; Hibernate runs with `ddl-auto: validate` and only checks that the entities match what the migrations built. Migrations live in `src/main/resources/db/migration`.
+
+connection-service has no migrations — Neo4j is schema-less here, and nodes are created by the `user_created_topic` consumer.
 
 ---
 
@@ -211,27 +281,31 @@ All failures return a consistent envelope, with `fieldErrors` populated for vali
 
 ```
 orbit-net/
-├── docs/images/          architecture and design diagrams
-├── posts-service/        posts, likes, feed pagination  (port 8080)
-└── user-service/         accounts and auth             (port 8081)
+├── docs/images/            architecture and design diagrams
+├── api-gateway/            public entry point, JWT validation   (8083)
+├── discovery-service/      Eureka registry                      (8084)
+├── user-service/           accounts, auth, JWT issuance         (8081)
+├── posts-service/          posts, likes, feed pagination        (8080)
+├── connection-service/     connection graph on Neo4j            (8082)
+└── notification-service/   event consumer, notifications        (8085)
 ```
 
 ---
 
 ## Roadmap
 
-- [x] Posts service — create, fetch, paginate
-- [x] Post likes with duplicate protection
+- [x] Posts service — create, fetch, paginate, like
 - [x] Consistent error handling and request validation
-- [ ] User service — registration, login, JWT issuance
-- [ ] API gateway — routing and JWT validation
-- [ ] Service registry and config server
-- [ ] Connections service on Neo4j
-- [ ] Kafka events (`post_created`, `post_liked`) and notification service
+- [x] User service — registration, login, JWT issuance
+- [x] API gateway — routing and JWT validation
+- [x] Eureka service registry
+- [x] Connections service on Neo4j
+- [x] Kafka events and notification service
+- [x] Flyway migrations
+- [ ] Connection requests — send, accept, reject
 - [ ] Uploader service with external object storage
-- [ ] Flyway migrations
 - [ ] Zipkin tracing and ELK logging
-- [ ] Dockerfiles, Kubernetes manifests, Jenkins pipeline
+- [ ] Dockerfiles, Kubernetes manifests, CI/CD pipeline
 
 ---
 

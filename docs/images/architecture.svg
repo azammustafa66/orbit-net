@@ -1,0 +1,147 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1460" height="940" viewBox="0 0 1460 940" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="aBlue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#6aa9ff"/>
+    </marker>
+    <marker id="aAmber" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#f0a868"/>
+    </marker>
+    <marker id="aGreen" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#6ee7a8"/>
+    </marker>
+  </defs>
+
+  <rect width="1460" height="940" fill="#16181d"/>
+
+  <text x="40" y="52" fill="#e6e9ef" font-size="30" font-weight="600">OrbitNet — service architecture</text>
+  <text x="40" y="80" fill="#98a2b3" font-size="15">Six Spring Boot services. One public entry point; everything else private.</text>
+
+  <!-- Legend -->
+  <rect x="40" y="110" width="390" height="140" rx="12" fill="none" stroke="#3a4150" stroke-dasharray="5 4"/>
+  <text x="62" y="140" fill="#98a2b3" font-size="14" font-weight="600" letter-spacing="1">LEGEND</text>
+  <line x1="62" y1="166" x2="106" y2="166" stroke="#6aa9ff" stroke-width="2" marker-end="url(#aBlue)"/>
+  <text x="120" y="171" fill="#98a2b3" font-size="13">synchronous HTTP</text>
+  <line x1="62" y1="196" x2="106" y2="196" stroke="#f0a868" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#aAmber)"/>
+  <text x="120" y="201" fill="#98a2b3" font-size="13">asynchronous Kafka event</text>
+  <line x1="62" y1="226" x2="106" y2="226" stroke="#6ee7a8" stroke-width="2" marker-end="url(#aGreen)"/>
+  <text x="120" y="231" fill="#98a2b3" font-size="13">service-to-service call (Feign)</text>
+
+  <!-- Client -->
+  <rect x="40" y="312" width="130" height="76" rx="10" fill="#1e222a" stroke="#3a4150"/>
+  <text x="105" y="345" fill="#e6e9ef" font-size="16" text-anchor="middle">Client</text>
+  <text x="105" y="367" fill="#98a2b3" font-size="12" text-anchor="middle">web / mobile</text>
+
+  <line x1="170" y1="350" x2="240" y2="350" stroke="#6aa9ff" stroke-width="2" marker-end="url(#aBlue)"/>
+  <text x="205" y="340" fill="#98a2b3" font-size="12" text-anchor="middle">JWT</text>
+
+  <!-- Gateway -->
+  <rect x="248" y="292" width="180" height="116" rx="12" fill="#1e222a" stroke="#6aa9ff" stroke-width="1.5"/>
+  <text x="338" y="328" fill="#e6e9ef" font-size="17" font-weight="600" text-anchor="middle">API Gateway</text>
+  <text x="338" y="350" fill="#6aa9ff" font-size="13" text-anchor="middle">:8083</text>
+  <text x="338" y="374" fill="#98a2b3" font-size="12" text-anchor="middle">verifies JWT · routes</text>
+  <text x="338" y="392" fill="#98a2b3" font-size="12" text-anchor="middle">strips spoofed headers</text>
+  <text x="338" y="432" fill="#6aa9ff" font-size="12" text-anchor="middle">the only public IP</text>
+
+  <!-- Planned -->
+  <rect x="40" y="480" width="390" height="360" rx="12" fill="none" stroke="#4a5162" stroke-dasharray="5 4"/>
+  <text x="62" y="512" fill="#98a2b3" font-size="14" font-weight="600" letter-spacing="1">PLANNED — NOT YET WIRED UP</text>
+  <text x="62" y="552" fill="#8b93a3" font-size="14">Uploader service → external object storage</text>
+  <text x="62" y="584" fill="#8b93a3" font-size="14">Zipkin — distributed tracing</text>
+  <text x="62" y="616" fill="#8b93a3" font-size="14">ELK — centralised logging</text>
+  <text x="62" y="648" fill="#8b93a3" font-size="14">Docker images · Kubernetes manifests</text>
+  <text x="62" y="680" fill="#8b93a3" font-size="14">CI/CD pipeline</text>
+  <line x1="62" y1="712" x2="408" y2="712" stroke="#3a4150"/>
+  <text x="62" y="742" fill="#98a2b3" font-size="13">There is no config server — each service</text>
+  <text x="62" y="762" fill="#98a2b3" font-size="13">reads its own application.yaml.</text>
+  <text x="62" y="800" fill="#98a2b3" font-size="13">Schema is owned by Flyway; Hibernate</text>
+  <text x="62" y="820" fill="#98a2b3" font-size="13">only validates it.</text>
+
+  <!-- Private subnet -->
+  <rect x="470" y="100" width="930" height="740" rx="14" fill="none" stroke="#3a4150" stroke-dasharray="7 5"/>
+  <text x="492" y="128" fill="#98a2b3" font-size="14">private subnet — reachable only through the gateway</text>
+
+  <!-- Gateway into the bus -->
+  <line x1="428" y1="350" x2="496" y2="350" stroke="#6aa9ff" stroke-width="2"/>
+  <line x1="496" y1="182" x2="496" y2="632" stroke="#6aa9ff" stroke-width="2"/>
+  <text transform="rotate(-90 484 410)" x="484" y="410" fill="#6aa9ff" font-size="12" text-anchor="middle">X-User-Id header</text>
+  <line x1="496" y1="182" x2="534" y2="182" stroke="#6aa9ff" stroke-width="2" marker-end="url(#aBlue)"/>
+  <line x1="496" y1="332" x2="534" y2="332" stroke="#6aa9ff" stroke-width="2" marker-end="url(#aBlue)"/>
+  <line x1="496" y1="482" x2="534" y2="482" stroke="#6aa9ff" stroke-width="2" marker-end="url(#aBlue)"/>
+  <line x1="496" y1="632" x2="534" y2="632" stroke="#6aa9ff" stroke-width="2" marker-end="url(#aBlue)"/>
+
+  <!-- Services -->
+  <rect x="540" y="150" width="200" height="64" rx="10" fill="#1e222a" stroke="#3a4150"/>
+  <text x="640" y="180" fill="#e6e9ef" font-size="16" font-weight="600" text-anchor="middle">user-service</text>
+  <text x="640" y="200" fill="#98a2b3" font-size="12" text-anchor="middle">:8081 · accounts, JWT</text>
+  <line x1="640" y1="214" x2="640" y2="226" stroke="#3a4150"/>
+  <rect x="540" y="226" width="200" height="34" rx="8" fill="#1a1d24" stroke="#3a4150"/>
+  <text x="640" y="248" fill="#98a2b3" font-size="12.5" text-anchor="middle">PostgreSQL</text>
+
+  <rect x="540" y="300" width="200" height="64" rx="10" fill="#1e222a" stroke="#3a4150"/>
+  <text x="640" y="330" fill="#e6e9ef" font-size="16" font-weight="600" text-anchor="middle">posts-service</text>
+  <text x="640" y="350" fill="#98a2b3" font-size="12" text-anchor="middle">:8080 · posts, likes</text>
+  <line x1="640" y1="364" x2="640" y2="376" stroke="#3a4150"/>
+  <rect x="540" y="376" width="200" height="34" rx="8" fill="#1a1d24" stroke="#3a4150"/>
+  <text x="640" y="398" fill="#98a2b3" font-size="12.5" text-anchor="middle">PostgreSQL</text>
+
+  <rect x="540" y="450" width="200" height="64" rx="10" fill="#1e222a" stroke="#3a4150"/>
+  <text x="640" y="480" fill="#e6e9ef" font-size="16" font-weight="600" text-anchor="middle">connection-service</text>
+  <text x="640" y="500" fill="#98a2b3" font-size="12" text-anchor="middle">:8082 · connection graph</text>
+  <line x1="640" y1="514" x2="640" y2="526" stroke="#3a4150"/>
+  <rect x="540" y="526" width="200" height="34" rx="8" fill="#1a1d24" stroke="#3a4150"/>
+  <text x="640" y="548" fill="#98a2b3" font-size="12.5" text-anchor="middle">Neo4j</text>
+
+  <rect x="540" y="600" width="200" height="64" rx="10" fill="#1e222a" stroke="#3a4150"/>
+  <text x="640" y="630" fill="#e6e9ef" font-size="16" font-weight="600" text-anchor="middle">notification-service</text>
+  <text x="640" y="650" fill="#98a2b3" font-size="12" text-anchor="middle">:8085 · fan-out</text>
+  <line x1="640" y1="664" x2="640" y2="676" stroke="#3a4150"/>
+  <rect x="540" y="676" width="200" height="34" rx="8" fill="#1a1d24" stroke="#3a4150"/>
+  <text x="640" y="698" fill="#98a2b3" font-size="12.5" text-anchor="middle">PostgreSQL</text>
+
+  <text x="640" y="732" fill="#98a2b3" font-size="12" text-anchor="middle">a database per service — no shared tables</text>
+
+  <!-- Feign call -->
+  <path d="M740,350 L780,350 L780,464 L746,464" fill="none" stroke="#6ee7a8" stroke-width="2" marker-end="url(#aGreen)"/>
+  <text x="792" y="404" fill="#6ee7a8" font-size="12">Feign — who are my</text>
+  <text x="792" y="420" fill="#6ee7a8" font-size="12">first-degree connections?</text>
+
+  <!-- Kafka arrows -->
+  <line x1="740" y1="182" x2="1114" y2="182" stroke="#f0a868" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#aAmber)"/>
+  <text x="927" y="172" fill="#f0a868" font-size="12" text-anchor="middle">user_created</text>
+
+  <line x1="740" y1="332" x2="1114" y2="332" stroke="#f0a868" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#aAmber)"/>
+  <text x="927" y="322" fill="#f0a868" font-size="12" text-anchor="middle">post_created · post_liked</text>
+
+  <line x1="1120" y1="482" x2="746" y2="482" stroke="#f0a868" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#aAmber)"/>
+  <text x="927" y="472" fill="#f0a868" font-size="12" text-anchor="middle">user_created → creates Person node</text>
+
+  <line x1="1120" y1="632" x2="746" y2="632" stroke="#f0a868" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#aAmber)"/>
+  <text x="927" y="622" fill="#f0a868" font-size="12" text-anchor="middle">post_created · post_liked</text>
+
+  <!-- Kafka -->
+  <rect x="1120" y="160" width="260" height="495" rx="12" fill="#1e222a" stroke="#f0a868" stroke-width="1.5"/>
+  <text x="1250" y="232" fill="#f0a868" font-size="19" font-weight="600" text-anchor="middle">Kafka</text>
+  <text x="1250" y="254" fill="#98a2b3" font-size="12" text-anchor="middle">event backbone</text>
+
+  <rect x="1145" y="278" width="210" height="44" rx="8" fill="#1a1d24" stroke="#3a4150"/>
+  <text x="1250" y="305" fill="#e6e9ef" font-size="13" text-anchor="middle">user_created_topic</text>
+  <rect x="1145" y="336" width="210" height="44" rx="8" fill="#1a1d24" stroke="#3a4150"/>
+  <text x="1250" y="363" fill="#e6e9ef" font-size="13" text-anchor="middle">post_created_topic</text>
+  <rect x="1145" y="394" width="210" height="44" rx="8" fill="#1a1d24" stroke="#3a4150"/>
+  <text x="1250" y="421" fill="#e6e9ef" font-size="13" text-anchor="middle">post_liked_topic</text>
+
+  <line x1="1145" y1="470" x2="1355" y2="470" stroke="#3a4150"/>
+  <text x="1250" y="500" fill="#98a2b3" font-size="12" text-anchor="middle">3 partitions per topic</text>
+  <text x="1250" y="522" fill="#98a2b3" font-size="12" text-anchor="middle">at-least-once delivery</text>
+  <text x="1250" y="560" fill="#8b93a3" font-size="11.5" text-anchor="middle">events travel under logical</text>
+  <text x="1250" y="578" fill="#8b93a3" font-size="11.5" text-anchor="middle">names, not shared classes</text>
+  <text x="1250" y="612" fill="#8b93a3" font-size="11.5" text-anchor="middle">producers publish only</text>
+  <text x="1250" y="630" fill="#8b93a3" font-size="11.5" text-anchor="middle">after their tx commits</text>
+
+  <!-- Eureka -->
+  <rect x="540" y="740" width="840" height="62" rx="10" fill="#1e222a" stroke="#3a4150"/>
+  <text x="960" y="770" fill="#e6e9ef" font-size="15" font-weight="600" text-anchor="middle">discovery-service :8084 — Eureka registry</text>
+  <text x="960" y="790" fill="#98a2b3" font-size="12" text-anchor="middle">every service registers here; peers are addressed by name (lb://POSTS-SERVICE), never by IP</text>
+
+  <text x="40" y="905" fill="#6c7484" font-size="12">Source: docs/images/architecture.svg — edit the SVG, then re-export the PNG.</text>
+</svg>

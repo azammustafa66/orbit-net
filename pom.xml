@@ -23,6 +23,8 @@
 		<module>connection-service</module>
 		<module>api-gateway</module>
 		<module>discovery-service</module>
+		<module>notification-service</module>
+		<module>uploader-service</module>
 	</modules>
 
 </project>
