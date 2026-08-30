@@ -21,3 +21,20 @@ spring:
 # "resolve through Eureka" — correct outside this profile, and unusable inside it.
 CONNECTION_SERVICE_URI: http://connection-service
 UPLOADER_SERVICE_URI: http://uploader-service
+
+# Actuator moves to its own port so the probe path is the same for every service. On the
+# main port it would sit under server.servlet.context-path, giving each service a different
+# probe URL, and it would be reachable through the Ingress alongside the API.
+management:
+  server:
+    port: 9090
+  endpoint:
+    health:
+      probes:
+        # Splits /actuator/health into the liveness and readiness groups the probes below use.
+        enabled: true
+      show-details: never
+  endpoints:
+    web:
+      exposure:
+        include: "health,info"

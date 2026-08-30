@@ -1,0 +1,64 @@
+# The only service the Ingress routes to, and the only one reachable from outside.
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway
+  namespace: orbit-net
+spec:
+  selector:
+    app: api-gateway
+  ports:
+    # Port 80, because the application-k8s.yaml addresses carry no port
+    # (http://api-gateway). Changing this means changing those too.
+    - port: 80
+      targetPort: 8083
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+  namespace: orbit-net
+spec:
+  # Two replicas so a rolling update never drops the entry point.
+  replicas: 2
+  selector:
+    matchLabels:
+      app: api-gateway
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+    spec:
+      containers:
+        - name: api-gateway
+          image: docker.io/azam99/orbit-net-api-gateway:0.1.1
+          ports:
+            - containerPort: 8083
+              name: http
+            - containerPort: 9090
+              name: management
+          envFrom:
+            # SPRING_PROFILES_ACTIVE=k8s lives here, which is what activates
+            # application-k8s.yaml and turns the Eureka client off.
+            - configMapRef:
+                name: orbit-net-config
+          env:
+            - name: JWT_SECRET
+              valueFrom: { secretKeyRef: { name: orbit-net-secrets, key: JWT_SECRET } }
+          # Probes hit the management port, so they are unaffected by each service's
+          # server.servlet.context-path and are never exposed through the Ingress.
+          startupProbe:
+            # Spring Boot start-up dominates here; until this passes the other two probes
+            # are not run at all, so a slow start cannot be mistaken for a crash loop.
+            httpGet: { path: /actuator/health/liveness, port: management }
+            periodSeconds: 5
+            failureThreshold: 30
+          livenessProbe:
+            httpGet: { path: /actuator/health/liveness, port: management }
+            periodSeconds: 20
+          readinessProbe:
+            httpGet: { path: /actuator/health/readiness, port: management }
+            periodSeconds: 10
+          resources:
+            requests: { cpu: "200m", memory: "512Mi" }
+            limits: { memory: "1Gi" }

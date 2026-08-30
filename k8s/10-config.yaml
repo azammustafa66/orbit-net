@@ -1,0 +1,17 @@
+# Non-secret settings shared by every service. Anything sensitive belongs in the Secret
+# (see 11-secrets.example.yaml), never here — ConfigMaps are readable by anyone with get
+# access to the namespace.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: orbit-net-config
+  namespace: orbit-net
+data:
+  # Activates src/main/resources/application-k8s.yaml in every service: Eureka off,
+  # addresses resolved through Kubernetes DNS instead.
+  SPRING_PROFILES_ACTIVE: "k8s"
+
+  # Service DNS names, resolvable from any pod in this namespace.
+  DB_HOST: "postgres"
+  DB_PORT: "5432"
+  NEO4J_URI: "bolt://neo4j:7687"

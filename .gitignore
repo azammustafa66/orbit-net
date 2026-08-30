@@ -36,3 +36,6 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# Real k8s secrets; only 11-secrets.example.yaml is committed.
+k8s/secrets.yaml

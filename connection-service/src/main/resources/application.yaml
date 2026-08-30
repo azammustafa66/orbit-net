@@ -28,12 +28,13 @@ spring:
     listener:
       # user_created_topic has 3 partitions.
       concurrency: 3
+  web:
+    error:
+      # Never leak internals to a caller; stack traces belong in the log, not the response.
+      include-stacktrace: never
+      include-message: always
 
 server:
-  # Never leak internals to a caller; stack traces belong in the log, not the response.
-  error:
-    include-stacktrace: never
-    include-message: always
   port: 8082
   servlet:
     context-path: /api/v1/connections

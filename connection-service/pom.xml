@@ -10,7 +10,7 @@
     </parent>
     <groupId>com.orbitet</groupId>
     <artifactId>connection-service</artifactId>
-    <version>0.1.0</version>
+    <version>0.1.1</version>
     <name>connection-service</name>
     <description>connection-service</description>
     <url/>

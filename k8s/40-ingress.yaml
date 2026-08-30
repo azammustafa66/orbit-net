@@ -1,0 +1,35 @@
+# The single way in. Every public path is /api/v1/**, and api-gateway owns the routing
+# from there — the other services have no Ingress of their own and are reachable only
+# from inside the namespace.
+#
+# Requires an nginx ingress controller in the cluster:
+#   helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
+#     --namespace ingress-nginx --create-namespace
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: orbit-net
+  namespace: orbit-net
+  annotations:
+    # Uploads go through this path, so the default 1m body limit is too small.
+    nginx.ingress.kubernetes.io/proxy-body-size: "25m"
+spec:
+  ingressClassName: nginx
+  rules:
+    # Replace with the real hostname. Leaving host out entirely would match every request
+    # the controller receives, which is rarely what you want on a shared cluster.
+    - host: orbit-net.example.com
+      http:
+        paths:
+          - path: /api/v1
+            pathType: Prefix
+            backend:
+              service:
+                name: api-gateway
+                port:
+                  number: 80
+  # TLS, once a certificate exists. cert-manager users add the issuer annotation above and
+  # uncomment this; the secret is created for you.
+  # tls:
+  #   - hosts: [orbit-net.example.com]
+  #     secretName: orbit-net-tls

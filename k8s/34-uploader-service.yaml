@@ -1,0 +1,69 @@
+# No database and no Kafka; it proxies uploads to Cloudinary.
+apiVersion: v1
+kind: Service
+metadata:
+  name: uploader-service
+  namespace: orbit-net
+spec:
+  selector:
+    app: uploader-service
+  ports:
+    # Port 80, because the application-k8s.yaml addresses carry no port
+    # (http://uploader-service). Changing this means changing those too.
+    - port: 80
+      targetPort: 8086
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: uploader-service
+  namespace: orbit-net
+spec:
+  # One replica to start. Every service here is stateless, so this is safe to
+          # raise once you have watched a deploy go through.
+  replicas: 1
+  selector:
+    matchLabels:
+      app: uploader-service
+  template:
+    metadata:
+      labels:
+        app: uploader-service
+    spec:
+      containers:
+        - name: uploader-service
+          image: docker.io/azam99/orbit-net-uploader-service:0.1.1
+          ports:
+            - containerPort: 8086
+              name: http
+            - containerPort: 9090
+              name: management
+          envFrom:
+            # SPRING_PROFILES_ACTIVE=k8s lives here, which is what activates
+            # application-k8s.yaml and turns the Eureka client off.
+            - configMapRef:
+                name: orbit-net-config
+          env:
+            - name: CLOUDINARY_CLOUD_NAME
+              valueFrom: { secretKeyRef: { name: orbit-net-secrets, key: CLOUDINARY_CLOUD_NAME } }
+            - name: CLOUDINARY_API_KEY
+              valueFrom: { secretKeyRef: { name: orbit-net-secrets, key: CLOUDINARY_API_KEY } }
+            - name: CLOUDINARY_API_SECRET
+              valueFrom: { secretKeyRef: { name: orbit-net-secrets, key: CLOUDINARY_API_SECRET } }
+          # Probes hit the management port, so they are unaffected by each service's
+          # server.servlet.context-path and are never exposed through the Ingress.
+          startupProbe:
+            # Spring Boot start-up dominates here; until this passes the other two probes
+            # are not run at all, so a slow start cannot be mistaken for a crash loop.
+            httpGet: { path: /actuator/health/liveness, port: management }
+            periodSeconds: 5
+            failureThreshold: 30
+          livenessProbe:
+            httpGet: { path: /actuator/health/liveness, port: management }
+            periodSeconds: 20
+          readinessProbe:
+            httpGet: { path: /actuator/health/readiness, port: management }
+            periodSeconds: 10
+          resources:
+            requests: { cpu: "200m", memory: "512Mi" }
+            limits: { memory: "1Gi" }

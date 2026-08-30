@@ -63,7 +63,7 @@ services:
   # defaults defaultZone to localhost:8084, which inside this container is itself — the
   # self-only peer list the service already documents.
   discovery-service:
-    image: docker.io/azam99/orbit-net-discovery-service:${IMAGE_TAG:-0.1.0}
+    image: docker.io/azam99/orbit-net-discovery-service:${IMAGE_TAG:-0.1.1}
     restart: unless-stopped
     networks: [infra]
     ports:
@@ -72,7 +72,7 @@ services:
   # The only service meant to be reached from outside. It verifies the tokens
   # user-service signs, so JWT_SECRET must be identical in both.
   api-gateway:
-    image: docker.io/azam99/orbit-net-api-gateway:${IMAGE_TAG:-0.1.0}
+    image: docker.io/azam99/orbit-net-api-gateway:${IMAGE_TAG:-0.1.1}
     restart: unless-stopped
     networks: [infra]
     ports:
@@ -85,7 +85,7 @@ services:
         condition: service_started
 
   user-service:
-    image: docker.io/azam99/orbit-net-user-service:${IMAGE_TAG:-0.1.0}
+    image: docker.io/azam99/orbit-net-user-service:${IMAGE_TAG:-0.1.1}
     restart: unless-stopped
     networks: [infra]
     ports:
@@ -98,7 +98,7 @@ services:
     depends_on: *infra-deps
 
   posts-service:
-    image: docker.io/azam99/orbit-net-posts-service:${IMAGE_TAG:-0.1.0}
+    image: docker.io/azam99/orbit-net-posts-service:${IMAGE_TAG:-0.1.1}
     restart: unless-stopped
     networks: [infra]
     ports:
@@ -112,7 +112,7 @@ services:
 
   # Neo4j rather than Postgres: this service stores the connection graph.
   connection-service:
-    image: docker.io/azam99/orbit-net-connection-service:${IMAGE_TAG:-0.1.0}
+    image: docker.io/azam99/orbit-net-connection-service:${IMAGE_TAG:-0.1.1}
     restart: unless-stopped
     networks: [infra]
     ports:
@@ -130,7 +130,7 @@ services:
         condition: service_started
 
   notification-service:
-    image: docker.io/azam99/orbit-net-notification-service:${IMAGE_TAG:-0.1.0}
+    image: docker.io/azam99/orbit-net-notification-service:${IMAGE_TAG:-0.1.1}
     restart: unless-stopped
     networks: [infra]
     ports:
@@ -142,7 +142,7 @@ services:
   # No database and no Kafka — it proxies uploads to Cloudinary, and Feign callers reach
   # it directly through Eureka rather than through the gateway.
   uploader-service:
-    image: docker.io/azam99/orbit-net-uploader-service:${IMAGE_TAG:-0.1.0}
+    image: docker.io/azam99/orbit-net-uploader-service:${IMAGE_TAG:-0.1.1}
     restart: unless-stopped
     networks: [infra]
     ports:

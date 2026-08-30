@@ -1,0 +1,69 @@
+# Signs the JWTs api-gateway verifies, so both mount the same JWT_SECRET key.
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-service
+  namespace: orbit-net
+spec:
+  selector:
+    app: user-service
+  ports:
+    # Port 80, because the application-k8s.yaml addresses carry no port
+    # (http://user-service). Changing this means changing those too.
+    - port: 80
+      targetPort: 8081
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-service
+  namespace: orbit-net
+spec:
+  # One replica to start. Every service here is stateless, so this is safe to
+          # raise once you have watched a deploy go through.
+  replicas: 1
+  selector:
+    matchLabels:
+      app: user-service
+  template:
+    metadata:
+      labels:
+        app: user-service
+    spec:
+      containers:
+        - name: user-service
+          image: docker.io/azam99/orbit-net-user-service:0.1.1
+          ports:
+            - containerPort: 8081
+              name: http
+            - containerPort: 9090
+              name: management
+          envFrom:
+            # SPRING_PROFILES_ACTIVE=k8s lives here, which is what activates
+            # application-k8s.yaml and turns the Eureka client off.
+            - configMapRef:
+                name: orbit-net-config
+          env:
+            - name: JWT_SECRET
+              valueFrom: { secretKeyRef: { name: orbit-net-secrets, key: JWT_SECRET } }
+            - name: DB_USER
+              valueFrom: { secretKeyRef: { name: orbit-net-secrets, key: DB_USER } }
+            - name: DB_PASSWORD
+              valueFrom: { secretKeyRef: { name: orbit-net-secrets, key: DB_PASSWORD } }
+          # Probes hit the management port, so they are unaffected by each service's
+          # server.servlet.context-path and are never exposed through the Ingress.
+          startupProbe:
+            # Spring Boot start-up dominates here; until this passes the other two probes
+            # are not run at all, so a slow start cannot be mistaken for a crash loop.
+            httpGet: { path: /actuator/health/liveness, port: management }
+            periodSeconds: 5
+            failureThreshold: 30
+          livenessProbe:
+            httpGet: { path: /actuator/health/liveness, port: management }
+            periodSeconds: 20
+          readinessProbe:
+            httpGet: { path: /actuator/health/readiness, port: management }
+            periodSeconds: 10
+          resources:
+            requests: { cpu: "200m", memory: "512Mi" }
+            limits: { memory: "1Gi" }

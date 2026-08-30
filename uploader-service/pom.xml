@@ -10,7 +10,7 @@
     </parent>
     <groupId>com.orbitet</groupId>
     <artifactId>uploader-service</artifactId>
-    <version>0.1.0</version>
+    <version>0.1.1</version>
     <name>uploader-service</name>
     <description>uploader-service</description>
     <url/>
@@ -31,6 +31,10 @@
         <spring-cloud.version>2025.1.3</spring-cloud.version>
     </properties>
     <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-webmvc</artifactId>

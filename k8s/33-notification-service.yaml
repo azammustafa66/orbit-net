@@ -1,0 +1,68 @@
+# Consumes postCreated and postLiked. Both topics have 3 partitions and the
+# listener runs concurrency 3, so one replica already uses every partition.
+apiVersion: v1
+kind: Service
+metadata:
+  name: notification-service
+  namespace: orbit-net
+spec:
+  selector:
+    app: notification-service
+  ports:
+    # Port 80, because the application-k8s.yaml addresses carry no port
+    # (http://notification-service). Changing this means changing those too.
+    - port: 80
+      targetPort: 8085
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-service
+  namespace: orbit-net
+spec:
+  # One replica to start. Every service here is stateless, so this is safe to
+          # raise once you have watched a deploy go through.
+  replicas: 1
+  selector:
+    matchLabels:
+      app: notification-service
+  template:
+    metadata:
+      labels:
+        app: notification-service
+    spec:
+      containers:
+        - name: notification-service
+          image: docker.io/azam99/orbit-net-notification-service:0.1.1
+          ports:
+            - containerPort: 8085
+              name: http
+            - containerPort: 9090
+              name: management
+          envFrom:
+            # SPRING_PROFILES_ACTIVE=k8s lives here, which is what activates
+            # application-k8s.yaml and turns the Eureka client off.
+            - configMapRef:
+                name: orbit-net-config
+          env:
+            - name: DB_USER
+              valueFrom: { secretKeyRef: { name: orbit-net-secrets, key: DB_USER } }
+            - name: DB_PASSWORD
+              valueFrom: { secretKeyRef: { name: orbit-net-secrets, key: DB_PASSWORD } }
+          # Probes hit the management port, so they are unaffected by each service's
+          # server.servlet.context-path and are never exposed through the Ingress.
+          startupProbe:
+            # Spring Boot start-up dominates here; until this passes the other two probes
+            # are not run at all, so a slow start cannot be mistaken for a crash loop.
+            httpGet: { path: /actuator/health/liveness, port: management }
+            periodSeconds: 5
+            failureThreshold: 30
+          livenessProbe:
+            httpGet: { path: /actuator/health/liveness, port: management }
+            periodSeconds: 20
+          readinessProbe:
+            httpGet: { path: /actuator/health/readiness, port: management }
+            periodSeconds: 10
+          resources:
+            requests: { cpu: "200m", memory: "512Mi" }
+            limits: { memory: "1Gi" }

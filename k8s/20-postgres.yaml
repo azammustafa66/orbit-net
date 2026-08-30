@@ -1,0 +1,96 @@
+# The init script runs once, on an empty data directory, exactly as it does under compose.
+# Adding a database later means creating it by hand or deleting the PVC.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init
+  namespace: orbit-net
+data:
+  init-databases.sql: |
+    -- Postgres only auto-creates POSTGRES_DB, and each service connects to
+    -- jdbc:postgresql://.../<service-name>, so without these they fail at startup with
+    -- "database ... does not exist". Names are hyphenated, so they must stay quoted.
+    CREATE DATABASE "user-service";
+    CREATE DATABASE "posts-service";
+    CREATE DATABASE "notification-service";
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: orbit-net
+spec:
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: orbit-net
+spec:
+  serviceName: postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              valueFrom: { secretKeyRef: { name: orbit-net-secrets, key: DB_USER } }
+            - name: POSTGRES_PASSWORD
+              valueFrom: { secretKeyRef: { name: orbit-net-secrets, key: DB_PASSWORD } }
+            # Gives initdb an owner database to finish against; the real ones come from
+            # the init script above.
+            - name: POSTGRES_DB
+              value: orbitnet
+            # The image refuses to initialise into a non-empty directory, and a mounted
+            # PVC always contains lost+found. A subdirectory sidesteps that.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: init
+              mountPath: /docker-entrypoint-initdb.d
+          readinessProbe:
+            # -d orbitnet, not the default: pg_isready against a database that does not
+            # exist still reports success, which would mark the pod ready too early.
+            exec:
+              command: ["sh", "-c", "pg_isready -U $POSTGRES_USER -d orbitnet"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U $POSTGRES_USER -d orbitnet"]
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources:
+            requests: { cpu: "100m", memory: "256Mi" }
+            limits: { memory: "1Gi" }
+      volumes:
+        - name: init
+          configMap:
+            name: postgres-init
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        # No storageClassName: the cluster's default class is used, which keeps this
+        # manifest portable across EKS, GKE and AKS.
+        resources:
+          requests:
+            storage: 10Gi

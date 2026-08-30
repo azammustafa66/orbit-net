@@ -1,0 +1,6 @@
+# Everything below lives in one namespace, so `kubectl -n orbit-net get all` shows the
+# whole application and deleting the namespace tears it down completely.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: orbit-net
