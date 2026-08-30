@@ -1,0 +1,159 @@
+# OrbitNet, whole application: the backing tier plus all seven services.
+#
+#   cp .env.example .env                  # then fill in the real values
+#   mvn compile jib:dockerBuild -Prelease -pl '!.'   # build the images into the local daemon
+#   docker compose up -d                  # start everything
+#
+# Compose never builds these images. There are no Dockerfiles — Jib builds straight from
+# the poms, so the images have to exist before `up`: `jib:dockerBuild` loads them locally,
+# `mvn package -Prelease` pushes them to Docker Hub. IMAGE_TAG selects which tag to run and
+# must match the version in the poms.
+#
+# `compile` is not optional. Invoking `jib:dockerBuild` as a bare goal runs that goal alone,
+# with no lifecycle phase before it, so it packages whatever target/classes already holds —
+# an image built from stale config that starts cleanly and then behaves like the old build.
+#
+# `-pl '!.'` skips the root aggregator. It has packaging `pom` and so carries no jib plugin,
+# and invoking the goal by its `jib:` prefix there fails with "No plugin found for prefix".
+#
+# To run one service from the IDE, start the tier it needs and leave that service out:
+#   docker compose up -d postgres kafka neo4j discovery-service
+
+name: orbit-net
+
+include:
+  # Merged into THIS project rather than run as a separate one. That is what lets the
+  # depends_on conditions below wait on the postgres, kafka and neo4j healthchecks —
+  # those conditions cannot reach across compose projects. Paths inside the included
+  # file resolve relative to that file, so its init-script mount still works.
+  - infra/docker-compose.yml
+
+# Every service registers with Eureka on the same terms.
+x-eureka-env: &eureka-env
+  EUREKA_URL: http://discovery-service:8084/eureka
+  # Register the container IP. Left off, Eureka advertises the container hostname, which
+  # is the container ID — a name that resolves nowhere, including from the gateway.
+  EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
+
+x-postgres-env: &postgres-env
+  # Each service appends its own database name to this host; init-databases.sql creates them.
+  DB_HOST: postgres
+  DB_PORT: 5432
+  DB_USER: "${DB_USER:-admin}"
+  DB_PASSWORD: "${DB_PASSWORD:-admin}"
+
+x-kafka-env: &kafka-env
+  # The INTERNAL listener, on the compose network. localhost:9092 is the host-side address:
+  # a container using it completes the handshake and is then redirected somewhere it cannot
+  # reach, which shows up as a hang rather than a connection error.
+  KAFKA_BOOTSTRAP: kafka:29092
+
+# Postgres and Kafka are ready only once their healthchecks pass; Eureka is not gated the
+# same way because its clients retry registration on their own.
+x-infra-deps: &infra-deps
+  postgres:
+    condition: service_healthy
+  kafka:
+    condition: service_healthy
+  discovery-service:
+    condition: service_started
+
+services:
+  # Eureka itself, so it owns no *_URL pointing at anything else. Its application.yaml
+  # defaults defaultZone to localhost:8084, which inside this container is itself — the
+  # self-only peer list the service already documents.
+  discovery-service:
+    image: docker.io/azam99/orbit-net-discovery-service:${IMAGE_TAG:-0.1.0}
+    restart: unless-stopped
+    networks: [infra]
+    ports:
+      - "${DISCOVERY_PORT:-8084}:8084"
+
+  # The only service meant to be reached from outside. It verifies the tokens
+  # user-service signs, so JWT_SECRET must be identical in both.
+  api-gateway:
+    image: docker.io/azam99/orbit-net-api-gateway:${IMAGE_TAG:-0.1.0}
+    restart: unless-stopped
+    networks: [infra]
+    ports:
+      - "${GATEWAY_PORT:-8083}:8083"
+    environment:
+      <<: *eureka-env
+      JWT_SECRET: "${JWT_SECRET:?set JWT_SECRET in .env — see .env.example}"
+    depends_on:
+      discovery-service:
+        condition: service_started
+
+  user-service:
+    image: docker.io/azam99/orbit-net-user-service:${IMAGE_TAG:-0.1.0}
+    restart: unless-stopped
+    networks: [infra]
+    ports:
+      - "${USER_SERVICE_PORT:-8081}:8081"
+    environment:
+      <<: [*eureka-env, *postgres-env, *kafka-env]
+      # Signs the tokens api-gateway verifies. A default here would mint forgeable
+      # tokens, so a missing value has to stop the stack instead.
+      JWT_SECRET: "${JWT_SECRET:?set JWT_SECRET in .env — see .env.example}"
+    depends_on: *infra-deps
+
+  posts-service:
+    image: docker.io/azam99/orbit-net-posts-service:${IMAGE_TAG:-0.1.0}
+    restart: unless-stopped
+    networks: [infra]
+    ports:
+      - "${POSTS_SERVICE_PORT:-8080}:8080"
+    environment:
+      <<: [*eureka-env, *postgres-env, *kafka-env]
+      # Both Feign clients default their `url` to "", which is Feign's signal to resolve
+      # the target through Eureka by name. Setting *_SERVICE_URI here would pin them to a
+      # fixed address and bypass discovery, so they are deliberately left unset.
+    depends_on: *infra-deps
+
+  # Neo4j rather than Postgres: this service stores the connection graph.
+  connection-service:
+    image: docker.io/azam99/orbit-net-connection-service:${IMAGE_TAG:-0.1.0}
+    restart: unless-stopped
+    networks: [infra]
+    ports:
+      - "${CONNECTION_SERVICE_PORT:-8082}:8082"
+    environment:
+      <<: [*eureka-env, *kafka-env]
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_PASSWORD: "${NEO4J_PASSWORD:?set NEO4J_PASSWORD in .env — see .env.example}"
+    depends_on:
+      neo4j:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      discovery-service:
+        condition: service_started
+
+  notification-service:
+    image: docker.io/azam99/orbit-net-notification-service:${IMAGE_TAG:-0.1.0}
+    restart: unless-stopped
+    networks: [infra]
+    ports:
+      - "${NOTIFICATION_SERVICE_PORT:-8085}:8085"
+    environment:
+      <<: [*eureka-env, *postgres-env, *kafka-env]
+    depends_on: *infra-deps
+
+  # No database and no Kafka — it proxies uploads to Cloudinary, and Feign callers reach
+  # it directly through Eureka rather than through the gateway.
+  uploader-service:
+    image: docker.io/azam99/orbit-net-uploader-service:${IMAGE_TAG:-0.1.0}
+    restart: unless-stopped
+    networks: [infra]
+    ports:
+      - "${UPLOADER_SERVICE_PORT:-8086}:8086"
+    environment:
+      <<: *eureka-env
+      # The service will not start without real values, so fail here with a readable
+      # message rather than in its logs.
+      CLOUDINARY_CLOUD_NAME: "${CLOUDINARY_CLOUD_NAME:?set CLOUDINARY_CLOUD_NAME in .env}"
+      CLOUDINARY_API_KEY: "${CLOUDINARY_API_KEY:?set CLOUDINARY_API_KEY in .env}"
+      CLOUDINARY_API_SECRET: "${CLOUDINARY_API_SECRET:?set CLOUDINARY_API_SECRET in .env}"
+    depends_on:
+      discovery-service:
+        condition: service_started

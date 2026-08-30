@@ -1,0 +1,126 @@
+# Backing infrastructure for OrbitNet: Postgres, Kafka and Neo4j.
+#
+# These previously came from the unrelated `postgres-pgadmin` project, which orbit-net's
+# compose.yaml joined as an external network. That coupled this repo to a directory
+# outside it and to two databases (mydatabase, vectordb) it never used. This file makes
+# orbit-net self-contained, and mirrors the tier the k8s manifests still need.
+#
+# The root compose.yaml pulls this file in with `include:`, so `docker compose up -d`
+# from the repo root starts this tier too. Run it on its own only to bring up the backing
+# services without the applications:
+#
+#   docker compose up -d postgres kafka neo4j     # from the repo root
+#   docker compose -f infra/docker-compose.yml up -d
+#
+# Host ports are overridable because the postgres-pgadmin project binds 5432 and 9092
+# already; running both without changing these fails with "port is already allocated":
+#   POSTGRES_PORT=5442 KAFKA_PORT=9192 docker compose -f infra/docker-compose.yml up -d
+
+name: orbit-net-infra
+
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    networks: [infra]
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      POSTGRES_USER: "${DB_USER:-admin}"
+      POSTGRES_PASSWORD: "${DB_PASSWORD:-admin}"
+      # The per-service databases are created by the init script; this one just gives the
+      # cluster an owner database to finish initdb against.
+      POSTGRES_DB: orbitnet
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      # Anything in this directory runs once, on first boot only.
+      - ./init-databases.sql:/docker-entrypoint-initdb.d/init-databases.sql:ro
+    healthcheck:
+      # -d orbitnet, not the default: pg_isready against a database that does not exist
+      # still reports success, which would let dependants start too early.
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-admin} -d orbitnet"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  kafka:
+    image: apache/kafka:3.9.0
+    restart: unless-stopped
+    networks: [infra]
+    ports:
+      # EXTERNAL only. The internal listener is deliberately not published: it advertises
+      # kafka:29092, a name that resolves on the compose network and nowhere else.
+      - "${KAFKA_PORT:-9092}:9092"
+    environment:
+      # KRaft — broker and controller in one node, no ZooKeeper.
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+
+      # Two listeners, because one cannot advertise a hostname that is correct both inside
+      # and outside the network. Containers get kafka:29092; host clients get localhost:9092.
+      # A client that connects to the wrong one succeeds at the handshake and is then
+      # redirected to an address it cannot reach, so this surfaces as a hang, not an error.
+      KAFKA_LISTENERS: INTERNAL://:29092,EXTERNAL://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+
+      # Single-broker sizing. These default to 3; leaving them would make the consumer
+      # offsets topic unable to elect a leader and every consumer would stall.
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      CLUSTER_ID: kR4ftLocalDevCluster1
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      # Queries the broker's own API versions over the internal listener: succeeds only
+      # once it is actually accepting client connections, which is well after the port opens.
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server kafka:29092 >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 15
+      start_period: 30s
+
+  neo4j:
+    image: neo4j:5-community
+    restart: unless-stopped
+    networks: [infra]
+    ports:
+      - "${NEO4J_HTTP_PORT:-7474}:7474"
+      - "${NEO4J_BOLT_PORT:-7687}:7687"
+    environment:
+      # The image takes user and password as a single value. connection-service's
+      # application.yaml hardcodes the username `neo4j`, so only the password varies.
+      # No default: neo4j refuses to start on a bad NEO4J_AUTH rather than falling back.
+      NEO4J_AUTH: "neo4j/${NEO4J_PASSWORD:?set NEO4J_PASSWORD in .env}"
+    volumes:
+      - neo4j-data:/data
+    healthcheck:
+      # cypher-shell, not a port probe: bolt accepts connections well before the database
+      # is available to query, and connection-service fails on that gap. The password is
+      # substituted by compose at parse time, so it is not read from the container env.
+      test: ["CMD-SHELL", "cypher-shell -u neo4j -p '${NEO4J_PASSWORD}' 'RETURN 1' >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 15
+      start_period: 30s
+
+networks:
+  infra:
+    # Explicitly named so the name does not change with the project that creates it.
+    # Without this it would be `orbit-net-infra_infra` here and `orbit-net_infra` when
+    # included from the repo root, and the two invocations would build separate networks.
+    name: orbit-net-infra
+
+volumes:
+  postgres-data:
+  kafka-data:
+  neo4j-data:

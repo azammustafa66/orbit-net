@@ -10,7 +10,7 @@
     </parent>
     <groupId>com.orbitet</groupId>
     <artifactId>api-gateway</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>0.1.0</version>
     <name>api-gateway</name>
     <description>api-gateway</description>
     <url/>
@@ -153,9 +153,6 @@
                         <version>3.5.2</version>
                         <configuration>
                             <from>
-                                <!-- Multi-arch manifest: arm64 for local k8s on Apple Silicon, amd64 for
-                                     cloud nodes. Only the `build` goal can emit this; `dockerBuild` is
-                                     single-platform and follows the host. -->
                                 <platforms>
                                     <platform><architecture>amd64</architecture><os>linux</os></platform>
                                     <platform><architecture>arm64</architecture><os>linux</os></platform>

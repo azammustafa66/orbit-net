@@ -1,12 +1,13 @@
 spring:
   application:
     name: uploader-service
+  web:
+    error:
+      # Never leak internals to a caller; stack traces belong in the log, not the response.
+      include-stacktrace: never
+      include-message: always
 
 server:
-  # Never leak internals to a caller; stack traces belong in the log, not the response.
-  error:
-    include-stacktrace: never
-    include-message: always
   port: 8086 # canonical port map: uploader-service is 8086 (8085 collided with notification-service)
   # Feign callers reach this service directly through Eureka, not via api-gateway, so the
   # /api/v1 prefix they use has to be served here rather than added by a gateway rewrite.

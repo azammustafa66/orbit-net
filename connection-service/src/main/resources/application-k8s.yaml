@@ -1,0 +1,18 @@
+# Overrides for the `k8s` profile. Service discovery is Kubernetes DNS here, not Eureka:
+# every service in this profile turns the Eureka client off, and discovery-service is not
+# deployed to the cluster at all. Anything that used to resolve through Eureka therefore
+# has to be given an explicit address below.
+eureka:
+  client:
+    fetch-registry: false
+    register-with-eureka: false
+
+spring:
+  neo4j:
+    # Username is inherited from application.yaml, which fixes it at `neo4j`.
+    uri: ${NEO4J_URI}
+    authentication:
+      password: ${NEO4J_PASSWORD}
+
+  kafka:
+    bootstrap-servers: kafka:9092

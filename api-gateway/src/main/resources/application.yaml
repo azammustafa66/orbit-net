@@ -9,14 +9,14 @@ spring:
             # Serves /api/v1/users/auth/** (context-path + @RequestMapping("/auth")),
             # so the path is forwarded untouched.
             - id: user-service
-              uri: lb://USER-SERVICE
+              uri: ${USER_SERVICE_URI:lb://USER-SERVICE}
               predicates:
                 - Path=/api/v1/users/**
 
             # posts-service has no context-path and maps /api/v1/core/posts,
             # so rewrite the public path onto the internal one.
             - id: posts-service
-              uri: lb://POSTS-SERVICE
+              uri: ${POSTS_SERVICE_URI:lb://POSTS-SERVICE}
               predicates:
                 - Path=/api/v1/posts/**
               filters:
@@ -27,22 +27,33 @@ spring:
 
             # Serves /api/v1/connections/** via context-path, forwarded untouched.
             - id: connection-service
-              uri: lb://CONNECTION-SERVICE
+              uri: ${CONNECTION_SERVICE_URI:lb://CONNECTION-SERVICE}
               predicates:
                 - Path=/api/v1/connections/**
 
             # notification-service maps /api/v1/notifications itself, so the path is
             # forwarded untouched.
             - id: notification-service
-              uri: lb://NOTIFICATION-SERVICE
+              uri: ${NOTIFICATION_SERVICE_URI:lb://NOTIFICATION-SERVICE}
               predicates:
                 - Path=/api/v1/notifications/**
 
+            # uploader-service serves /api/v1/file (context-path /api/v1 plus the
+            # controller's /file), so the public /upload path is rewritten onto it —
+            # same shape as the posts-service route above, and the slash stays inside
+            # the capture group for the same reason.
+            - id: uploader-service
+              uri: ${UPLOADER_SERVICE_URI:lb://UPLOADER-SERVICE}
+              predicates:
+                - Path=/api/v1/upload/**
+              filters:
+                - RewritePath=/api/v1/upload(?<segment>.*), /api/v1/file$\{segment}
+  web:
+    error:
+      include-message: always
+      include-stacktrace: never
+
 server:
-  # Never leak internals to a caller; stack traces belong in the log, not the response.
-  error:
-    include-stacktrace: never
-    include-message: always
   port: 8083
 
 # JWT

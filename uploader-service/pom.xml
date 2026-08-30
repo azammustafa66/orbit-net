@@ -10,7 +10,7 @@
     </parent>
     <groupId>com.orbitet</groupId>
     <artifactId>uploader-service</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>0.1.0</version>
     <name>uploader-service</name>
     <description>uploader-service</description>
     <url/>

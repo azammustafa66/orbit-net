@@ -1,0 +1,22 @@
+# Overrides for the `k8s` profile. Service discovery is Kubernetes DNS here, not Eureka:
+# every service in this profile turns the Eureka client off, and discovery-service is not
+# deployed to the cluster at all. The route targets below replace what `lb://` resolved.
+eureka:
+  client:
+    fetch-registry: false
+    register-with-eureka: false
+
+# Read by the route definitions in application.yaml, which default to lb:// outside this
+# profile. No port, so each Service must expose port 80 and target the container port
+# (8081 user, 8080 posts, 8082 connection, 8085 notification, 8086 uploader).
+USER_SERVICE_URI: http://user-service
+POSTS_SERVICE_URI: http://posts-service
+CONNECTION_SERVICE_URI: http://connection-service
+NOTIFICATION_SERVICE_URI: http://notification-service
+UPLOADER_SERVICE_URI: http://uploader-service
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health, info"
